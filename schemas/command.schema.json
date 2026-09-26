@@ -1,0 +1,312 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://anima.local/schemas/command.schema.json",
+	"title": "Anima 编辑命令（doc.command 的 command 字段）",
+	"description": "所有结构修改都必须走命令，以保证撤销栈与画面一致。详见 docs/ffi-contract.md §5.4。",
+	"$ref": "#/definitions/command",
+	"definitions": {
+		"id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
+		"vec2": {
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["x", "y"],
+					"properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+				},
+				{ "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+			]
+		},
+		"rect": {
+			"type": "object",
+			"required": ["min", "max"],
+			"properties": {
+				"min": { "$ref": "#/definitions/vec2" },
+				"max": { "$ref": "#/definitions/vec2" }
+			}
+		},
+		"blend": { "type": "string", "enum": ["normal", "multiply", "screen", "additive"] },
+		"rotation_value": {
+			"type": "object",
+			"properties": {
+				"angle": { "type": "number" },
+				"position": { "$ref": "#/definitions/vec2" },
+				"scale": { "$ref": "#/definitions/vec2" },
+				"origin": { "$ref": "#/definitions/vec2" },
+				"handle_length": { "type": "number" }
+			}
+		},
+		"op": {
+			"type": "object",
+			"required": ["op"],
+			"properties": { "op": { "type": "string" } }
+		},
+		"command": {
+			"oneOf": [
+				{
+					"properties": {
+						"op": { "const": "set_canvas" },
+						"width": { "type": "number" },
+						"height": { "type": "number" },
+						"origin": { "$ref": "#/definitions/vec2" }
+					},
+					"required": ["op", "width", "height"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_create" },
+						"kind": {
+							"type": "string",
+							"enum": ["part", "drawable", "warp_deformer", "rotation_deformer"]
+						},
+						"name": { "type": "string" },
+						"parent": { "type": ["string", "null"] },
+						"rect": { "$ref": "#/definitions/rect" },
+						"rows": { "type": "integer", "minimum": 1 },
+						"cols": { "type": "integer", "minimum": 1 }
+					},
+					"required": ["op", "kind", "name"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_delete" },
+						"node": { "$ref": "#/definitions/id" }
+					},
+					"required": ["op", "node"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_rename" },
+						"node": { "$ref": "#/definitions/id" },
+						"name": { "type": "string" }
+					},
+					"required": ["op", "node", "name"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_reparent" },
+						"node": { "$ref": "#/definitions/id" },
+						"parent": { "type": ["string", "null"] }
+					},
+					"required": ["op", "node"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_set_visible" },
+						"node": { "$ref": "#/definitions/id" },
+						"visible": { "type": "boolean" }
+					},
+					"required": ["op", "node", "visible"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_set_locked" },
+						"node": { "$ref": "#/definitions/id" },
+						"locked": { "type": "boolean" }
+					},
+					"required": ["op", "node", "locked"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_set_draw_order" },
+						"node": { "$ref": "#/definitions/id" },
+						"draw_order": { "type": "integer" }
+					},
+					"required": ["op", "node", "draw_order"]
+				},
+				{
+					"properties": {
+						"op": { "const": "node_set_rotation" },
+						"node": { "$ref": "#/definitions/id" },
+						"angle": { "type": "number" },
+						"position": { "$ref": "#/definitions/vec2" },
+						"scale": { "$ref": "#/definitions/vec2" },
+						"origin": { "$ref": "#/definitions/vec2" },
+						"handle_length": { "type": "number" }
+					},
+					"required": ["op", "node"]
+				},
+				{
+					"properties": {
+						"op": { "const": "mesh_set" },
+						"node": { "$ref": "#/definitions/id" },
+						"vertices": { "type": "array", "items": { "$ref": "#/definitions/vec2" } },
+						"uvs": { "type": "array", "items": { "$ref": "#/definitions/vec2" } },
+						"indices": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+					},
+					"required": ["op", "node", "vertices", "uvs", "indices"]
+				},
+				{
+					"properties": {
+						"op": { "const": "mesh_set_vertices" },
+						"node": { "$ref": "#/definitions/id" },
+						"vertices": { "type": "array", "items": { "$ref": "#/definitions/vec2" } }
+					},
+					"required": ["op", "node", "vertices"]
+				},
+				{
+					"properties": {
+						"op": { "const": "mesh_set_uvs" },
+						"node": { "$ref": "#/definitions/id" },
+						"uvs": { "type": "array", "items": { "$ref": "#/definitions/vec2" } }
+					},
+					"required": ["op", "node", "uvs"]
+				},
+				{
+					"properties": {
+						"op": { "const": "mesh_set_indices" },
+						"node": { "$ref": "#/definitions/id" },
+						"indices": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+					},
+					"required": ["op", "node", "indices"]
+				},
+				{
+					"properties": {
+						"op": { "const": "warp_set_control_points" },
+						"node": { "$ref": "#/definitions/id" },
+						"points": { "type": "array", "items": { "$ref": "#/definitions/vec2" } }
+					},
+					"required": ["op", "node", "points"]
+				},
+				{
+					"properties": {
+						"op": { "const": "warp_resize" },
+						"node": { "$ref": "#/definitions/id" },
+						"rows": { "type": "integer", "minimum": 1 },
+						"cols": { "type": "integer", "minimum": 1 }
+					},
+					"required": ["op", "node", "rows", "cols"]
+				},
+				{
+					"properties": {
+						"op": { "const": "drawable_set_texture" },
+						"node": { "$ref": "#/definitions/id" },
+						"texture": { "type": ["integer", "null"], "minimum": 0 }
+					},
+					"required": ["op", "node"]
+				},
+				{
+					"properties": {
+						"op": { "const": "drawable_set_uv_rect" },
+						"node": { "$ref": "#/definitions/id" },
+						"uv_rect": { "oneOf": [{ "$ref": "#/definitions/rect" }, { "type": "null" }] }
+					},
+					"required": ["op", "node"]
+				},
+				{
+					"properties": {
+						"op": { "const": "drawable_set_blend" },
+						"node": { "$ref": "#/definitions/id" },
+						"blend": { "$ref": "#/definitions/blend" }
+					},
+					"required": ["op", "node", "blend"]
+				},
+				{
+					"properties": {
+						"op": { "const": "drawable_set_opacity" },
+						"node": { "$ref": "#/definitions/id" },
+						"opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+					},
+					"required": ["op", "node", "opacity"]
+				},
+				{
+					"properties": {
+						"op": { "const": "drawable_set_masks" },
+						"node": { "$ref": "#/definitions/id" },
+						"masks": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+						"inverted": { "type": "boolean" }
+					},
+					"required": ["op", "node", "masks"]
+				},
+				{
+					"properties": {
+						"op": { "const": "drawable_set_culling" },
+						"node": { "$ref": "#/definitions/id" },
+						"culling": { "type": "boolean" }
+					},
+					"required": ["op", "node", "culling"]
+				},
+				{
+					"properties": {
+						"op": { "const": "keyform_record" },
+						"node": { "$ref": "#/definitions/id" },
+						"parameter": { "$ref": "#/definitions/id" },
+						"value": { "type": "number" },
+						"blend": { "$ref": "#/definitions/blend" },
+						"vertices": { "type": "array", "items": { "$ref": "#/definitions/vec2" } },
+						"opacity": { "type": "number" },
+						"control_points": { "type": "array", "items": { "$ref": "#/definitions/vec2" } },
+						"rotation": { "$ref": "#/definitions/rotation_value" },
+						"draw_order": { "type": "integer" }
+					},
+					"required": ["op", "node", "parameter", "value"]
+				},
+				{
+					"properties": {
+						"op": { "const": "keyform_remove" },
+						"node": { "$ref": "#/definitions/id" },
+						"parameter": { "$ref": "#/definitions/id" },
+						"value": { "type": "number" }
+					},
+					"required": ["op", "node", "parameter", "value"]
+				},
+				{
+					"properties": {
+						"op": { "const": "parameter_add" },
+						"id": { "$ref": "#/definitions/id" },
+						"name": { "type": "string" },
+						"min": { "type": "number" },
+						"max": { "type": "number" },
+						"default": { "type": "number" },
+						"group": { "type": ["string", "null"] },
+						"weight": { "type": "number" },
+						"repeat": { "type": "boolean" }
+					},
+					"required": ["op", "name", "min", "max", "default"]
+				},
+				{
+					"properties": {
+						"op": { "const": "parameter_remove" },
+						"parameter": { "$ref": "#/definitions/id" }
+					},
+					"required": ["op", "parameter"]
+				},
+				{
+					"properties": {
+						"op": { "const": "parameter_set_range" },
+						"parameter": { "$ref": "#/definitions/id" },
+						"min": { "type": "number" },
+						"max": { "type": "number" },
+						"default": { "type": "number" }
+					},
+					"required": ["op", "parameter", "min", "max", "default"]
+				},
+				{
+					"properties": {
+						"op": { "const": "texture_add" },
+						"asset": { "type": "string" },
+						"id": { "$ref": "#/definitions/id" },
+						"width": { "type": "integer", "minimum": 0 },
+						"height": { "type": "integer", "minimum": 0 },
+						"atlas": { "type": "boolean" }
+					},
+					"required": ["op", "asset"]
+				},
+				{
+					"properties": {
+						"op": { "const": "texture_remove" },
+						"index": { "type": "integer", "minimum": 0 }
+					},
+					"required": ["op", "index"]
+				},
+				{
+					"properties": {
+						"op": { "const": "batch" },
+						"commands": { "type": "array", "items": { "$ref": "#/definitions/command" } },
+						"label": { "type": ["string", "null"] }
+					},
+					"required": ["op", "commands"]
+				}
+			]
+		}
+	}
+}

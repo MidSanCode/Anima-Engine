@@ -1,0 +1,41 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://anima.local/schemas/envelope.schema.json",
+	"title": "Anima 方法调用信封",
+	"description": "am_call / Engine.call 的返回值。成功用 result，失败用 error。",
+	"type": "object",
+	"oneOf": [
+		{ "$ref": "#/definitions/ok" },
+		{ "$ref": "#/definitions/fail" }
+	],
+	"definitions": {
+		"ok": {
+			"type": "object",
+			"required": ["ok", "result"],
+			"properties": {
+				"ok": { "const": true },
+				"result": {}
+			}
+		},
+		"fail": {
+			"type": "object",
+			"required": ["ok", "error"],
+			"properties": {
+				"ok": { "const": false },
+				"error": { "$ref": "#/definitions/error" }
+			}
+		},
+		"error": {
+			"type": "object",
+			"required": ["code", "message"],
+			"properties": {
+				"code": {
+					"type": "integer",
+					"enum": [-32600, -32601, -32602, -32603, -32000],
+					"description": "-32600 请求非法 / -32601 方法不存在 / -32602 参数非法 / -32603 内部错误 / -32000 平台不支持"
+				},
+				"message": { "type": "string" }
+			}
+		}
+	}
+}

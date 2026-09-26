@@ -1,0 +1,239 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://anima.local/schemas/spec.schema.json",
+	"title": "Anima 描述层（project.spec / spec/ 目录）",
+	"description": "model 必需，其余可缺省。详见 docs/ffi-contract.md §5.1。",
+	"type": "object",
+	"required": ["model"],
+	"properties": {
+		"model": {
+			"description": "结构模型；严格 schema 见 model.schema.json（单独校验）",
+			"type": "object",
+			"required": ["id", "name"]
+		},
+		"physics": { "$ref": "#/definitions/physics_settings" },
+		"pose": { "$ref": "#/definitions/pose" },
+		"settings": { "$ref": "#/definitions/model_settings" },
+		"motions": { "type": "array", "items": { "$ref": "#/definitions/motion" } },
+		"expressions": { "type": "array", "items": { "$ref": "#/definitions/expression" } },
+		"config": { "type": ["object", "null"] }
+	},
+	"definitions": {
+		"id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
+		"vec2": {
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["x", "y"],
+					"properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+				},
+				{ "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+			]
+		},
+		"blend": { "type": "string", "enum": ["normal", "multiply", "screen", "additive"] },
+		"normalization": {
+			"type": "object",
+			"required": ["min", "default", "max"],
+			"properties": {
+				"min": { "type": "number" },
+				"default": { "type": "number" },
+				"max": { "type": "number" }
+			}
+		},
+		"physics_kind": { "type": "string", "enum": ["pendulum", "vertex_chain"] },
+		"physics_param_type": {
+			"type": "string",
+			"enum": ["angle", "position_x", "position_y", "position_z"]
+		},
+		"physics_input": {
+			"type": "object",
+			"required": ["parameter"],
+			"properties": {
+				"parameter": { "$ref": "#/definitions/id" },
+				"weight": { "type": "number" },
+				"inverted": { "type": "boolean" },
+				"param_type": { "$ref": "#/definitions/physics_param_type" },
+				"normalization": { "$ref": "#/definitions/normalization" }
+			}
+		},
+		"physics_output": {
+			"type": "object",
+			"required": ["parameter"],
+			"properties": {
+				"parameter": { "$ref": "#/definitions/id" },
+				"weight": { "type": "number" },
+				"inverted": { "type": "boolean" },
+				"param_type": { "$ref": "#/definitions/physics_param_type" },
+				"scale": { "type": "number" },
+				"reflect": { "type": "boolean" },
+				"normalization": { "$ref": "#/definitions/normalization" }
+			}
+		},
+		"physics_vertex": {
+			"type": "object",
+			"required": ["position"],
+			"properties": {
+				"position": { "$ref": "#/definitions/vec2" },
+				"mobility": { "type": "number", "minimum": 0, "maximum": 1 },
+				"delay": { "type": "number", "minimum": 0 },
+				"acceleration": { "type": "number" },
+				"radius": { "type": "number", "minimum": 0 },
+				"weight": { "type": "number", "minimum": 0, "maximum": 1 }
+			}
+		},
+		"physics_setting": {
+			"type": "object",
+			"required": ["id", "name"],
+			"properties": {
+				"id": { "type": "string" },
+				"name": { "type": "string" },
+				"kind": { "$ref": "#/definitions/physics_kind" },
+				"inputs": { "type": "array", "items": { "$ref": "#/definitions/physics_input" } },
+				"outputs": { "type": "array", "items": { "$ref": "#/definitions/physics_output" } },
+				"vertices": { "type": "array", "items": { "$ref": "#/definitions/physics_vertex" } },
+				"position_normalization": { "$ref": "#/definitions/normalization" },
+				"angle_normalization": { "$ref": "#/definitions/normalization" },
+				"delay": { "type": "number", "minimum": 0 },
+				"gravity": { "type": "number" },
+				"enabled": { "type": "boolean" }
+			}
+		},
+		"physics_settings": {
+			"type": "object",
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"fps": { "type": "number", "exclusiveMinimum": 0 },
+				"gravity": { "$ref": "#/definitions/vec2" },
+				"wind": { "$ref": "#/definitions/vec2" },
+				"settings": { "type": "array", "items": { "$ref": "#/definitions/physics_setting" } }
+			}
+		},
+		"pose": {
+			"type": "object",
+			"properties": {
+				"groups": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": ["id", "name"],
+						"properties": {
+							"id": { "type": "string" },
+							"name": { "type": "string" },
+							"parts": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"required": ["node"],
+									"properties": {
+										"node": { "$ref": "#/definitions/id" },
+										"visible": { "type": "boolean" }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"model_settings": {
+			"type": "object",
+			"properties": {
+				"display_name": { "type": ["string", "null"] },
+				"default_motion": { "type": ["string", "null"] },
+				"default_expression": { "type": ["string", "null"] },
+				"physics": { "type": "boolean" },
+				"parameter_defaults": { "type": "object" },
+				"motion_groups": { "type": "object" },
+				"expression_groups": { "type": "object" },
+				"auto_blink": { "type": ["object", "null"] },
+				"auto_breath": { "type": ["object", "null"] },
+				"lip_sync": { "type": ["object", "null"] }
+			}
+		},
+		"easing": {
+			"description": "linear/step/ease_in/ease_out/ease_in_out，或任意三次贝塞尔 { cubic_bezier: { p1, p2 } }",
+			"oneOf": [
+				{
+					"type": "string",
+					"enum": ["linear", "step", "ease_in", "ease_out", "ease_in_out"]
+				},
+				{
+					"type": "object",
+					"required": ["cubic_bezier"],
+					"properties": {
+						"cubic_bezier": {
+							"type": "object",
+							"required": ["p1", "p2"],
+							"properties": {
+								"p1": { "$ref": "#/definitions/vec2" },
+								"p2": { "$ref": "#/definitions/vec2" }
+							}
+						}
+					}
+				}
+			]
+		},
+		"motion_key": {
+			"type": "object",
+			"required": ["time", "value"],
+			"properties": {
+				"time": { "type": "number", "minimum": 0 },
+				"value": { "type": "number" },
+				"easing": { "$ref": "#/definitions/easing" }
+			}
+		},
+		"motion_curve": {
+			"type": "object",
+			"required": ["target", "keys"],
+			"properties": {
+				"target": { "$ref": "#/definitions/id" },
+				"kind": { "type": "string" },
+				"keys": {
+					"type": "array",
+					"items": { "$ref": "#/definitions/motion_key" },
+					"description": "按 time 升序"
+				}
+			}
+		},
+		"motion": {
+			"type": "object",
+			"required": ["id", "name"],
+			"properties": {
+				"id": { "$ref": "#/definitions/id" },
+				"name": { "type": "string" },
+				"duration": { "type": "number", "minimum": 0 },
+				"looping": { "type": "boolean" },
+				"fps": { "type": "number", "exclusiveMinimum": 0 },
+				"fade_in": { "type": "number", "minimum": 0 },
+				"fade_out": { "type": "number", "minimum": 0 },
+				"curves": { "type": "array", "items": { "$ref": "#/definitions/motion_curve" } },
+				"comment": { "type": ["string", "null"] },
+				"colors": { "type": ["object", "null"] }
+			}
+		},
+		"expression_parameter": {
+			"type": "object",
+			"required": ["parameter", "value"],
+			"properties": {
+				"parameter": { "$ref": "#/definitions/id" },
+				"value": { "type": "number" },
+				"blend": { "$ref": "#/definitions/blend" },
+				"weight": { "type": "number" }
+			}
+		},
+		"expression": {
+			"type": "object",
+			"required": ["id", "name"],
+			"properties": {
+				"id": { "$ref": "#/definitions/id" },
+				"name": { "type": "string" },
+				"fade_in": { "type": "number", "minimum": 0 },
+				"fade_out": { "type": "number", "minimum": 0 },
+				"parameters": {
+					"type": "array",
+					"items": { "$ref": "#/definitions/expression_parameter" }
+				}
+			}
+		}
+	}
+}

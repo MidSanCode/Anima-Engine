@@ -1,0 +1,197 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://anima.local/schemas/model.schema.json",
+	"title": "Anima 结构模型（spec/model.json）",
+	"description": "引擎运行的最小集合。详见 docs/ffi-contract.md §5.2 与 docs/format.md。",
+	"type": "object",
+	"required": ["id", "name"],
+	"properties": {
+		"version": { "type": "integer", "minimum": 1 },
+		"id": { "$ref": "#/definitions/id" },
+		"name": { "type": "string", "minLength": 1 },
+		"canvas": { "$ref": "#/definitions/canvas" },
+		"textures": { "type": "array", "items": { "$ref": "#/definitions/texture" } },
+		"nodes": { "type": "array", "items": { "$ref": "#/definitions/node" } },
+		"parameters": { "type": "array", "items": { "$ref": "#/definitions/parameter" } },
+		"parameter_groups": { "type": "array", "items": { "$ref": "#/definitions/parameter_group" } }
+	},
+	"definitions": {
+		"id": {
+			"type": "string",
+			"pattern": "^[A-Za-z0-9_-]{1,128}$",
+			"description": "全局唯一、删除后不得复用；非空 ASCII 字母数字/下划线/连字符"
+		},
+		"vec2": {
+			"description": "输出为 {x,y}；输入也接受 [x, y]",
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["x", "y"],
+					"properties": {
+						"x": { "type": "number" },
+						"y": { "type": "number" }
+					}
+				},
+				{
+					"type": "array",
+					"items": { "type": "number" },
+					"minItems": 2,
+					"maxItems": 2
+				}
+			]
+		},
+		"rect": {
+			"type": "object",
+			"required": ["min", "max"],
+			"properties": {
+				"min": { "$ref": "#/definitions/vec2" },
+				"max": { "$ref": "#/definitions/vec2" }
+			}
+		},
+		"canvas": {
+			"type": "object",
+			"required": ["width", "height"],
+			"properties": {
+				"width": { "type": "number", "exclusiveMinimum": 0 },
+				"height": { "type": "number", "exclusiveMinimum": 0 },
+				"origin": { "$ref": "#/definitions/vec2" },
+				"pixels_per_unit": { "type": "number", "exclusiveMinimum": 0 }
+			}
+		},
+		"texture": {
+			"type": "object",
+			"required": ["id", "asset"],
+			"properties": {
+				"id": { "$ref": "#/definitions/id" },
+				"asset": { "type": "string", "pattern": "^assets/" },
+				"width": { "type": "integer", "minimum": 0 },
+				"height": { "type": "integer", "minimum": 0 },
+				"atlas": { "type": "boolean" }
+			}
+		},
+		"mesh": {
+			"type": "object",
+			"required": ["vertices", "uvs", "indices"],
+			"properties": {
+				"vertices": { "type": "array", "items": { "$ref": "#/definitions/vec2" }, "minItems": 3 },
+				"uvs": { "type": "array", "items": { "$ref": "#/definitions/vec2" }, "minItems": 3 },
+				"indices": {
+					"type": "array",
+					"items": { "type": "integer", "minimum": 0 },
+					"minItems": 3
+				}
+			}
+		},
+		"blend": {
+			"type": "string",
+			"enum": ["normal", "multiply", "screen", "additive"]
+		},
+		"rotation": {
+			"type": "object",
+			"properties": {
+				"angle": { "type": "number" },
+				"position": { "$ref": "#/definitions/vec2" },
+				"scale": { "$ref": "#/definitions/vec2" },
+				"origin": { "$ref": "#/definitions/vec2" },
+				"handle_length": { "type": "number", "minimum": 0 }
+			}
+		},
+		"warp": {
+			"type": "object",
+			"required": ["rows", "cols", "control_points"],
+			"properties": {
+				"rows": { "type": "integer", "minimum": 1 },
+				"cols": { "type": "integer", "minimum": 1 },
+				"control_points": {
+					"type": "array",
+					"items": { "$ref": "#/definitions/vec2" },
+					"description": "行优先，长度必须等于 (rows+1)*(cols+1)"
+				}
+			}
+		},
+		"drawable": {
+			"type": "object",
+			"required": ["mesh"],
+			"properties": {
+				"texture": { "type": ["integer", "null"], "minimum": 0 },
+				"uv_rect": { "oneOf": [{ "$ref": "#/definitions/rect" }, { "type": "null" }] },
+				"mesh": { "$ref": "#/definitions/mesh" },
+				"opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+				"blend": { "$ref": "#/definitions/blend" },
+				"masks": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+				"inverted_mask": { "type": "boolean" },
+				"culling": { "type": "boolean" }
+			}
+		},
+		"keyform": {
+			"type": "object",
+			"required": ["value"],
+			"properties": {
+				"value": { "type": "number" },
+				"blend": { "$ref": "#/definitions/blend" },
+				"vertices": { "type": "array", "items": { "$ref": "#/definitions/vec2" } },
+				"opacity": { "type": ["number", "null"] },
+				"control_points": { "type": "array", "items": { "$ref": "#/definitions/vec2" } },
+				"rotation": { "oneOf": [{ "$ref": "#/definitions/rotation" }, { "type": "null" }] },
+				"draw_order": { "type": ["integer", "null"] }
+			}
+		},
+		"node": {
+			"type": "object",
+			"required": ["id", "name", "kind"],
+			"properties": {
+				"id": { "$ref": "#/definitions/id" },
+				"name": { "type": "string", "minLength": 1 },
+				"parent": { "type": ["string", "null"] },
+				"visible": { "type": "boolean" },
+				"locked": { "type": "boolean" },
+				"draw_order": { "type": "integer" },
+				"kind": {
+					"type": "string",
+					"enum": ["part", "drawable", "warp_deformer", "rotation_deformer"]
+				},
+				"drawable": { "oneOf": [{ "$ref": "#/definitions/drawable" }, { "type": "null" }] },
+				"warp": { "oneOf": [{ "$ref": "#/definitions/warp" }, { "type": "null" }] },
+				"rotation": { "oneOf": [{ "$ref": "#/definitions/rotation" }, { "type": "null" }] },
+				"keyforms": {
+					"type": "object",
+					"description": "参数 id → 按 value 升序的关键形列表",
+					"additionalProperties": {
+						"type": "array",
+						"items": { "$ref": "#/definitions/keyform" }
+					}
+				}
+			}
+		},
+		"parameter": {
+			"type": "object",
+			"required": ["id", "name", "min", "max", "default"],
+			"properties": {
+				"id": { "$ref": "#/definitions/id" },
+				"name": { "type": "string", "minLength": 1 },
+				"group": { "type": ["string", "null"] },
+				"min": { "type": "number" },
+				"max": { "type": "number" },
+				"default": { "type": "number" },
+				"keys": {
+					"type": "array",
+					"items": { "type": "number" },
+					"description": "升序；编辑器滑杆的停靠点"
+				},
+				"is_blend_shape": { "type": "boolean" },
+				"repeat": { "type": "boolean" },
+				"auto": { "type": "boolean" },
+				"weight": { "type": "number" },
+				"comment": { "type": ["string", "null"] }
+			}
+		},
+		"parameter_group": {
+			"type": "object",
+			"required": ["id", "name"],
+			"properties": {
+				"id": { "$ref": "#/definitions/id" },
+				"name": { "type": "string", "minLength": 1 }
+			}
+		}
+	}
+}

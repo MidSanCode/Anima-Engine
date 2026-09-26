@@ -2,7 +2,7 @@
 
 > 本文档是**编辑器与查看器使用引擎的唯一依据**。
 > 引擎侧实现：`crates/am-ffi/src/lib.rs`（C ABI）与 `crates/am-core/src/lib.rs`（方法分发）。
-> 头文件：`crates/am-ffi/bindings/include/anima.h`。
+> 头文件：`crates/am-ffi/bindings/include/anima.h`；机器可校验的 schema 见 `schemas/`。
 >
 > 契约版本：引擎 `0.1.0`，格式 `amproj v1`。
 
@@ -239,7 +239,8 @@ const char* am_last_error(void);                                  /* 线程本�
 }
 ```
 
-**id 是不可变字符串**（`node-…` / `tex-…` / `param-…`），永远不要复用已删除的 id；
+**id 是不可变字符串**（非空 ASCII 字母数字/`_`/`-`，≤128 字节；参数惯例 PascalCase 如
+`AngleX`，其余惯例 kebab/snake 如 `node-body`），永远不要复用已删除的 id；
 引用一律用 id，不要用下标（只有 `drawable.texture` 例外，它是纹理下标）。
 
 ### 5.3 场景（`runtime.scene`）

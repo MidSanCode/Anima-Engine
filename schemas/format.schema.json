@@ -1,0 +1,74 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://anima.local/schemas/format.schema.json",
+	"title": ".amproj 工程格式（工程级文件）",
+	"description": "info.json / registry.json / metadata 的 schema。详见 docs/format.md。",
+	"$ref": "#/definitions/info",
+	"definitions": {
+		"name": {
+			"type": "string",
+			"pattern": "^[a-z0-9_-]+$"
+		},
+		"info": {
+			"type": "object",
+			"required": ["name"],
+			"properties": {
+				"format": { "type": "string", "const": "amproj" },
+				"min_sdk": { "type": "integer", "minimum": 1 },
+				"name": { "$ref": "#/definitions/name" },
+				"display_name": { "type": ["string", "null"] },
+				"description": { "type": "string" },
+				"author": { "type": ["string", "null"] },
+				"author_sign": {
+					"type": ["object", "null"],
+					"properties": {
+						"algorithm": { "type": "string" },
+						"signature": { "type": "string" },
+						"signed_at": { "type": "integer" }
+					}
+				},
+				"license": { "type": ["string", "null"] },
+				"tags": { "type": "array", "items": { "type": "string" } },
+				"created_time": { "type": "integer", "minimum": 0 },
+				"last_update_time": { "type": "integer", "minimum": 0 },
+				"version": { "type": "integer", "minimum": 1 }
+			}
+		},
+		"registry": {
+			"type": "object",
+			"properties": {
+				"registered_files": {
+					"type": "array",
+					"items": { "type": "string", "pattern": "^assets/" },
+					"description": "相对工程根、以 assets/ 开头的路径；应排序去重"
+				},
+				"asset_count": { "type": ["integer", "null"], "minimum": 0 },
+				"timestamp_sign": {
+					"type": ["object", "null"],
+					"properties": {
+						"token": { "type": "string" },
+						"signed_at": { "type": "integer" }
+					}
+				}
+			}
+		},
+		"asset_metadata": {
+			"type": "object",
+			"required": ["path", "sha256"],
+			"properties": {
+				"path": { "type": "string", "pattern": "^assets/" },
+				"type": { "type": "string", "enum": ["image", "audio", "text", "model", "other"] },
+				"mime": { "type": ["string", "null"] },
+				"format": { "type": ["string", "null"] },
+				"size": { "type": "integer", "minimum": 0 },
+				"sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+				"hash_algorithm": { "type": "string" },
+				"created_time": { "type": "integer", "minimum": 0 },
+				"last_update_time": { "type": "integer", "minimum": 0 },
+				"width": { "type": "integer", "minimum": 0 },
+				"height": { "type": "integer", "minimum": 0 },
+				"duration_seconds": { "type": "number", "minimum": 0 }
+			}
+		}
+	}
+}

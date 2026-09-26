@@ -3,7 +3,7 @@
 > 实现：`crates/am-format`（格式层，**唯一权威实现**）+ `crates/am-model`（描述层数据结构）。
 > 参考标准：LGDF v2.0（`temp/example/`，用户提供的参考实现）。
 > 扩展名：目录模式无后缀；打包模式 `.amproj`（ZIP + Deflate）。
-> 契约版本：`format = "amproj"`，`min_sdk = 1`。
+> 契约版本：`format = "amproj"`，`min_sdk = 1`。机器可校验的 schema 见 `schemas/`。
 
 ---
 
@@ -120,8 +120,8 @@
 | 换行 | `\n` |
 | 键名 | snake_case |
 | 枚举 | 小写下划线字符串（`part` / `drawable` / `warp_deformer` / `rotation_deformer`） |
-| id | `^[a-z0-9_-]+$`，全局唯一，删除后**不得复用** |
-| 名称 | `name` 字段受 id 规则约束；显示名用 `display_name` |
+| id | `^[A-Za-z0-9_-]{1,128}$`（非空 ASCII 字母数字/下划线/连字符），全局唯一，删除后**不得复用**；惯例：参数用 PascalCase（`AngleX`），其余用 kebab/snake（`node-body`） |
+| 名称 | 工程目录名与 `info.json` 的 `name` 更严格：`^[a-z0-9_-]+$`；`display_name` 不受限 |
 | 时间 | Unix 秒（整数） |
 | 颜色 | `#rrggbb` 或 `#rrggbbaa` |
 | 数值 | 不使用 `NaN` / `Infinity` |

@@ -18,6 +18,7 @@ engine/
 │   ├── am-ffi       C ABI（cdylib/staticlib）+ bindings/include/anima.h
 │   ├── am-wasm      wasm-bindgen 绑定
 │   └── am-cli       anima 命令行工具
+├── schemas/         JSON Schema（envelope / format / model / spec / command）
 ├── docs/
 │   ├── ffi-contract.md   ★ 编辑器/查看器对接的唯一契约
 │   └── format.md         .amproj 格式规范
@@ -69,6 +70,7 @@ cargo run -p am-cli -- render   samples/minimal -o preview.png --width 256 --hei
 | 单元测试 | 各 crate `src/**/tests` | 数学、格式、求值、命令、物理、动作 |
 | GPU 集成测试 | `crates/am-render/tests/render.rs` | 真实设备渲染 + 逐像素断言（遮罩/混合/层） |
 | 协议契约测试 | `crates/am-core/tests/api.rs` | 21 个用例走 `dispatch_json`，锁死信封与方法形状 |
+| Schema 一致性测试 | `crates/am-format/tests/schemas.rs` | `schemas/*.schema.json` 约束真实工程文件与真实调用数据 |
 | C ABI 测试 | `crates/am-ffi/tests/ffi.rs` | 只通过 C ABI 驱动引擎，含渲染与事件回调 |
 | CLI 测试 | `crates/am-cli/src/main.rs` | 建工程 → 校验 → 渲染 → 导出 |
 | 示例工程 | `samples/minimal` | 手工编写的 `.amproj`，用于校验格式与渲染链路 |

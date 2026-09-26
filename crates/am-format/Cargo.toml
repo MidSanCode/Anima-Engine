@@ -14,4 +14,5 @@ thiserror.workspace = true
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
+jsonschema = "0.58.0"
 tempfile = "3.27.0"
