@@ -1,0 +1,8 @@
+target/
+**/*.rs.bk
+*.pdb
+work/
+dist/
+*.amproj
+*.amproj.sha256
+.DS_Store

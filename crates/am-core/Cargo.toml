@@ -1,0 +1,20 @@
+[package]
+name = "am-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Anima engine crate: am-core"
+
+[dependencies]
+am-doc.workspace = true
+am-eval.workspace = true
+am-format.workspace = true
+am-math.workspace = true
+am-model.workspace = true
+am-motion.workspace = true
+am-physics.workspace = true
+am-render.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

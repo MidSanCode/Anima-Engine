@@ -1,0 +1,9 @@
+[package]
+name = "am-math"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Anima engine crate: am-math"
+
+[dependencies]
+serde.workspace = true

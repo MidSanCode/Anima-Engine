@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Anima"]
+rust-version = "1.90"
+repository = "https://example.invalid/anima/engine"
+
+[workspace.dependencies]
+am-math = { path = "crates/am-math" }
+am-model = { path = "crates/am-model" }
+am-format = { path = "crates/am-format" }
+am-eval = { path = "crates/am-eval" }
+am-render = { path = "crates/am-render" }
+am-physics = { path = "crates/am-physics" }
+am-motion = { path = "crates/am-motion" }
+am-doc = { path = "crates/am-doc" }
+am-core = { path = "crates/am-core" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+thiserror = "2"
+log = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+
+[profile.release.package."*"]
+opt-level = 3

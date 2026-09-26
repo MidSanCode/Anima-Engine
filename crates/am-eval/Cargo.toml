@@ -1,0 +1,11 @@
+[package]
+name = "am-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Anima engine crate: am-eval"
+
+[dependencies]
+am-math.workspace = true
+am-model.workspace = true
+serde.workspace = true

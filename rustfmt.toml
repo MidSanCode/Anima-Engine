@@ -1,0 +1,5 @@
+max_width = 110
+tab_spaces = 4
+edition = "2021"
+use_field_init_shorthand = true
+newline_style = "Unix"

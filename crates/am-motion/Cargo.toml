@@ -1,0 +1,11 @@
+[package]
+name = "am-motion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Anima engine crate: am-motion"
+
+[dependencies]
+am-math.workspace = true
+am-model.workspace = true
+serde.workspace = true

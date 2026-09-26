@@ -1,0 +1,14 @@
+[package]
+name = "am-doc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Anima engine crate: am-doc"
+
+[dependencies]
+am-format.workspace = true
+am-math.workspace = true
+am-model.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
