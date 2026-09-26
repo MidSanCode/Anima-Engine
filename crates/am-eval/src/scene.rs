@@ -105,6 +105,9 @@ pub struct NodeView {
     pub id: Id,
     pub name: String,
     pub kind: NodeKind,
+    /// 父节点（用于渲染器解析遮罩范围、编辑器绘制树）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<Id>,
     pub visible: bool,
     /// 该节点生效的不透明度（绘制对象为自身与祖先的乘积）。
     pub opacity: f32,
@@ -280,6 +283,7 @@ pub fn evaluate(model: &Model, params: &ParamStore) -> Evaluated {
             id: node.id.clone(),
             name: node.name.clone(),
             kind: node.kind,
+            parent: node.parent.clone(),
             visible,
             opacity: chain_opacity(model, node, &deforms),
             world_affine: fold_affine(&chain),

@@ -45,6 +45,7 @@ dependencies = [
 name = "am-doc"
 version = "0.1.0"
 dependencies = [
+ "am-eval",
  "am-format",
  "am-math",
  "am-model",
@@ -130,6 +131,7 @@ dependencies = [
  "image",
  "log",
  "pollster",
+ "serde",
  "thiserror",
  "wgpu",
 ]

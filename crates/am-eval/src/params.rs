@@ -126,6 +126,19 @@ impl ParamStore {
         self.values.retain(|k, _| valid.contains(k.as_str()));
     }
 
+    /// 与模型对齐：补齐新参数（取默认值）、丢弃已删除参数、把已有取值钳制到新范围。
+    ///
+    /// 编辑命令改变了参数集合之后必须调用，否则运行时取值会与模型脱节。
+    pub fn sync_with_model(&mut self, model: &Model) {
+        let valid: std::collections::BTreeSet<&str> =
+            model.parameters.iter().map(|p| p.id.as_str()).collect();
+        self.values.retain(|k, _| valid.contains(k.as_str()));
+        for p in &model.parameters {
+            let entry = self.values.entry(p.id.clone()).or_insert(p.default);
+            *entry = p.clamp_value(*entry);
+        }
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (&Id, &f32)> {
         self.values.iter()
     }
@@ -248,6 +261,27 @@ mod tests {
 
         s.set("ghost", 3.0);
         s.retain_model_parameters(&m);
+        assert_eq!(s.len(), 2);
+    }
+
+    #[test]
+    fn sync_with_model_adds_removes_and_clamps() {
+        let mut m = model_with_params();
+        let mut s = ParamStore::from_model(&m);
+        s.set("px", 12.0);
+
+        // 新增参数 → 取默认值
+        m.add_parameter(Parameter::new("pz", "AngleZ", -5.0, 5.0, 2.5));
+        // 缩小范围 → 已有取值被钳制
+        m.parameters[0].max = 10.0;
+        s.sync_with_model(&m);
+        assert_eq!(s.get("pz"), 2.5);
+        assert_eq!(s.get("px"), 10.0);
+
+        // 删除参数 → 取值被丢弃
+        m.parameters.retain(|p| p.id != "py");
+        s.sync_with_model(&m);
+        assert!(s.try_get("py").is_none());
         assert_eq!(s.len(), 2);
     }
 

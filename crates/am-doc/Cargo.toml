@@ -6,6 +6,7 @@ license.workspace = true
 description = "Anima engine crate: am-doc"
 
 [dependencies]
+am-eval.workspace = true
 am-format.workspace = true
 am-math.workspace = true
 am-model.workspace = true
