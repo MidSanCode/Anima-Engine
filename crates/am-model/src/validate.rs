@@ -473,7 +473,7 @@ mod tests {
     fn warp_point_count_is_checked() {
         let mut m = clean_model();
         let mut w = Node::warp_deformer("W", None, 1, 1, Rect::from_min_size(Vec2::ZERO, Vec2::splat(10.0)));
-        w.warp = Some(WarpData { rows: 1, cols: 1, control_points: vec![Vec2::ZERO], show_grid: true });
+        w.warp = Some(WarpData { control_points: vec![Vec2::ZERO], ..WarpData::default() });
         m.add_node(w);
         let rep = m.validate();
         assert!(rep.codes().contains(&"WARP_CONTROL_POINTS_INCOMPLETE"));

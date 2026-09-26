@@ -9,3 +9,6 @@ description = "Anima engine crate: am-eval"
 am-math.workspace = true
 am-model.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

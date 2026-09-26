@@ -60,6 +60,7 @@ dependencies = [
  "am-math",
  "am-model",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -219,10 +219,17 @@ impl Default for DrawableData {
 }
 
 /// 自由变形（Warps）数据：`(rows+1) × (cols+1)` 个控制点。
+///
+/// 语义：`rest_rect` 是**静止网格**（均匀分布、位于本节点局部空间）；
+/// `control_points` 是这些格点在**父空间**中的当前位置。两者在静止姿态下重合，
+/// 因此映射退化为恒等 —— 这是求值器 `am-eval::WarpMap` 的基础。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WarpData {
     pub rows: u32,
     pub cols: u32,
+    /// 静止网格的矩形范围；缺省时由控制点包围盒推断（退化情况）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rest_rect: Option<Rect>,
     #[serde(default)]
     pub control_points: Vec<Vec2>,
     /// 是否显示网格（仅编辑器）。
@@ -232,7 +239,7 @@ pub struct WarpData {
 
 impl Default for WarpData {
     fn default() -> Self {
-        Self { rows: 1, cols: 1, control_points: Vec::new(), show_grid: true }
+        Self { rows: 1, cols: 1, rest_rect: None, control_points: Vec::new(), show_grid: true }
     }
 }
 
@@ -261,7 +268,7 @@ impl WarpData {
                 ));
             }
         }
-        Self { rows, cols, control_points, show_grid: true }
+        Self { rows, cols, rest_rect: Some(rect), control_points, show_grid: true }
     }
 
     /// 控制点索引。
