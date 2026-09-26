@@ -51,6 +51,16 @@ impl DecodedImage {
         }
         Self { width: self.width, height: self.height, rgba: out }
     }
+
+    /// 写出 PNG（截图、命令行工具与黄金图测试用）。
+    pub fn save_png(&self, path: impl AsRef<std::path::Path>) -> Result<(), TextureError> {
+        let buffer = image::RgbaImage::from_raw(self.width, self.height, self.rgba.clone())
+            .ok_or(TextureError::BadLength {
+                expected: self.width as usize * self.height as usize * 4,
+                actual: self.rgba.len(),
+            })?;
+        buffer.save(path.as_ref()).map_err(|e| TextureError::Decode(e.to_string()))
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

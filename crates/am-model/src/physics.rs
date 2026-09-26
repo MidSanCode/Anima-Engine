@@ -167,6 +167,18 @@ impl Default for PhysicsVertex {
     }
 }
 
+impl PhysicsVertex {
+    /// 由位置创建（其余取默认值）。
+    pub fn new(position: Vec2) -> Self {
+        Self { position, ..Default::default() }
+    }
+
+    /// 是否可动（用于校验与编辑器提示）。
+    pub fn is_movable(&self) -> bool {
+        self.mobility > 0.0 && self.position.is_finite()
+    }
+}
+
 /// 一组物理设定。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhysicsSetting {

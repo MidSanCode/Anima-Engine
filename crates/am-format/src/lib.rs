@@ -14,7 +14,7 @@ pub mod validate;
 
 pub use error::{FormatError, Result};
 pub use model::{AssetMetadata, AuthorSign, Info, Registry, TimestampSign};
-pub use project::Project;
+pub use project::{CreateOptions, ExportResult, Project};
 pub use validate::{ValidationIssue, ValidationReport};
 
 /// 格式标识，写入 `info.json` 的 `format` 字段。

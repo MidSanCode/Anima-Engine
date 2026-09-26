@@ -13,8 +13,17 @@ am-math.workspace = true
 am-model.workspace = true
 am-motion.workspace = true
 am-physics.workspace = true
-am-render.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+# 渲染后端按需启用：wasm 目标可以关掉 GPU，只用 JSON 协议。
+am-render = { workspace = true, optional = true }
+
+[features]
+default = ["gpu"]
+gpu = ["dep:am-render"]
+
+[dev-dependencies]
+tempfile = "3.27.0"

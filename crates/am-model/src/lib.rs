@@ -20,6 +20,7 @@ pub mod model;
 pub mod motion;
 pub mod param;
 pub mod physics;
+pub mod spec;
 pub mod validate;
 
 pub use expression::{
@@ -37,6 +38,7 @@ pub use physics::{
     NormalizationRange, PhysicsInput, PhysicsKind, PhysicsOutput, PhysicsParamType, PhysicsSetting,
     PhysicsSettings, PhysicsVertex,
 };
+pub use spec::Spec;
 pub use validate::{ModelIssue, ModelReport};
 
 /// 描述层文件名。

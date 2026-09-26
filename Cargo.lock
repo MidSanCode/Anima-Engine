@@ -38,6 +38,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
@@ -106,18 +107,23 @@ dependencies = [
 name = "am-motion"
 version = "0.1.0"
 dependencies = [
+ "am-eval",
  "am-math",
  "am-model",
  "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
 name = "am-physics"
 version = "0.1.0"
 dependencies = [
+ "am-eval",
  "am-math",
  "am-model",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

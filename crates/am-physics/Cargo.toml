@@ -6,6 +6,10 @@ license.workspace = true
 description = "Anima engine crate: am-physics"
 
 [dependencies]
+am-eval.workspace = true
 am-math.workspace = true
 am-model.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
