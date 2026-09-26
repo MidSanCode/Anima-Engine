@@ -1,0 +1,119 @@
+{
+	"version": 1,
+	"id": "model-minimal",
+	"name": "minimal",
+	"canvas": {
+		"width": 512.0,
+		"height": 512.0,
+		"origin": [
+			0.0,
+			0.0
+		],
+		"pixels_per_unit": 1.0
+	},
+	"textures": [
+		{
+			"id": "tex-body",
+			"asset": "assets/images/0.png",
+			"width": 1,
+			"height": 1,
+			"atlas": false
+		}
+	],
+	"nodes": [
+		{
+			"id": "node-root",
+			"name": "Root",
+			"parent": null,
+			"visible": true,
+			"locked": false,
+			"draw_order": 0,
+			"kind": "part"
+		},
+		{
+			"id": "node-body",
+			"name": "Body",
+			"parent": "node-root",
+			"visible": true,
+			"locked": false,
+			"draw_order": 0,
+			"kind": "drawable",
+			"drawable": {
+				"texture": 0,
+				"uv_rect": null,
+				"mesh": {
+					"vertices": [
+						[
+							-128.0,
+							-128.0
+						],
+						[
+							128.0,
+							-128.0
+						],
+						[
+							128.0,
+							128.0
+						],
+						[
+							-128.0,
+							128.0
+						]
+					],
+					"uvs": [
+						[
+							0.0,
+							0.0
+						],
+						[
+							1.0,
+							0.0
+						],
+						[
+							1.0,
+							1.0
+						],
+						[
+							0.0,
+							1.0
+						]
+					],
+					"indices": [
+						0,
+						1,
+						2,
+						0,
+						2,
+						3
+					]
+				},
+				"opacity": 1.0,
+				"blend": "normal",
+				"masks": [],
+				"inverted_mask": false,
+				"culling": false
+			}
+		}
+	],
+	"parameters": [
+		{
+			"id": "AngleX",
+			"name": "Angle X",
+			"group": null,
+			"min": -30.0,
+			"max": 30.0,
+			"default": 0.0,
+			"keys": [
+				-30.0,
+				0.0,
+				30.0
+			],
+			"is_blend_shape": false,
+			"repeat": false,
+			"auto": false,
+			"weight": 1.0,
+			"comment": null
+		}
+	],
+	"parameter_groups": []
+}

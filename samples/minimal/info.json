@@ -1,0 +1,16 @@
+{
+	"format": "amproj",
+	"min_sdk": 1,
+	"name": "minimal",
+	"display_name": "最小示例",
+	"description": "最小可运行的 Anima 工程：一张 1x1 贴图、一个绘制对象、一个参数。",
+	"author": "Anima",
+	"license": "MIT",
+	"tags": [
+		"sample",
+		"minimal"
+	],
+	"created_time": 1790432030,
+	"last_update_time": 1790432030,
+	"version": 1
+}
