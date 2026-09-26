@@ -12,3 +12,8 @@ crate-type = ["cdylib", "rlib"]
 am-core.workspace = true
 serde_json.workspace = true
 wasm-bindgen = "0.2.129"
+
+[features]
+default = []
+# Web 端自绘（体积明显变大）；默认交给页面用 Canvas/WebGL 画。
+gpu = ["am-core/gpu"]

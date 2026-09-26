@@ -1,23 +1,19 @@
 [package]
-name = "am-ffi"
+name = "am-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Anima engine crate: am-ffi"
+description = "Anima 引擎命令行工具"
 
-[lib]
+[[bin]]
 name = "anima"
-crate-type = ["cdylib", "staticlib", "rlib"]
+path = "src/main.rs"
 
 [dependencies]
 am-core = { workspace = true, features = ["gpu"] }
 am-format.workspace = true
+am-model.workspace = true
 serde_json.workspace = true
-
-[features]
-default = ["gpu"]
-# 转发给 am-core：关掉后引擎只有 JSON 协议，没有离屏渲染后端。
-gpu = ["am-core/gpu"]
 
 [dev-dependencies]
 tempfile = "3.27.0"

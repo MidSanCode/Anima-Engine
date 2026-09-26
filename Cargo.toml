@@ -19,7 +19,7 @@ am-render = { path = "crates/am-render" }
 am-physics = { path = "crates/am-physics" }
 am-motion = { path = "crates/am-motion" }
 am-doc = { path = "crates/am-doc" }
-am-core = { path = "crates/am-core" }
+am-core = { path = "crates/am-core", default-features = false }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
