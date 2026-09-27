@@ -1,0 +1,297 @@
+name: Build Engine Core
+
+# 构建引擎核心产物：各平台原生库 + CLI + wasm 绑定。
+# 注意：不跑 cargo test --workspace —— 渲染测试需要真实 GPU 适配器，
+# CI runner 上不可靠；各平台用 CLI 冒烟（validate 不需要 GPU）兜底。
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_windows:
+        description: 'Windows (x64)'
+        type: boolean
+        default: true
+      build_linux:
+        description: 'Linux (x64)'
+        type: boolean
+        default: false
+      build_macos:
+        description: 'macOS (universal)'
+        type: boolean
+        default: false
+      build_android:
+        description: 'Android (4 ABIs → .aar)'
+        type: boolean
+        default: false
+      build_ios:
+        description: 'iOS (device + simulator XCFramework)'
+        type: boolean
+        default: false
+      build_web:
+        description: 'Web (wasm-bindgen ES module)'
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ---------------------------------------------------------------- Windows
+  windows:
+    if: inputs.build_windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Build DLL + CLI (release)
+        run: |
+          cargo build -p am-ffi --release
+          cargo build -p am-cli --release
+      - name: Smoke test (no GPU needed)
+        run: |
+          cargo run -p am-cli -- version
+          cargo run -p am-cli -- validate samples/minimal
+          cargo run -p am-cli -- export samples/minimal minimal.amproj
+      - name: Stage
+        shell: pwsh
+        run: |
+          $stage = "stage/anima-windows-x64"
+          New-Item -ItemType Directory -Force "$stage/samples" | Out-Null
+          Copy-Item target/release/anima.dll, target/release/anima.dll.lib, target/release/anima.lib $stage
+          Copy-Item crates/am-ffi/bindings/include/anima.h $stage
+          Copy-Item target/release/anima.exe "$stage/anima-cli.exe"
+          Copy-Item samples/minimal "$stage/samples/minimal" -Recurse -Force
+          Write-Output "STAGE=$stage" >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anima-Windows-x64
+          path: engine/stage/anima-windows-x64
+
+  # ---------------------------------------------------------------- Linux
+  linux:
+    if: inputs.build_linux
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Build shared library + CLI
+        run: |
+          cargo build -p am-ffi --release
+          cargo build -p am-cli --release
+      - name: Smoke test
+        run: |
+          cargo run -p am-cli -- validate samples/minimal
+          cargo run -p am-cli -- export samples/minimal minimal.amproj
+      - name: Stage
+        run: |
+          stage=stage/anima-linux-x64
+          mkdir -p "$stage/samples"
+          cp target/release/libanima.so target/release/libanima.a "$stage/"
+          cp crates/am-ffi/bindings/include/anima.h "$stage/"
+          cp target/release/anima "$stage/anima-cli"
+          cp -r samples/minimal "$stage/samples/"
+          echo "STAGE=$stage" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anima-Linux-x64
+          path: engine/stage/anima-linux-x64
+
+  # ---------------------------------------------------------------- macOS
+  macos:
+    if: inputs.build_macos
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Build both architectures
+        run: |
+          cargo build -p am-ffi --release --target aarch64-apple-darwin
+          cargo build -p am-ffi --release --target x86_64-apple-darwin
+      - name: Lipo universal dylib + build host CLI
+        run: |
+          mkdir -p target/universal/release
+          lipo -create \
+            target/aarch64-apple-darwin/release/libanima.dylib \
+            target/x86_64-apple-darwin/release/libanima.dylib \
+            -output target/universal/release/libanima.dylib
+          cargo build -p am-cli --release
+      - name: Smoke test
+        run: cargo run -p am-cli -- validate samples/minimal
+      - name: Stage
+        run: |
+          stage=stage/anima-macos-universal
+          mkdir -p "$stage/samples"
+          cp target/universal/release/libanima.dylib "$stage/"
+          cp crates/am-ffi/bindings/include/anima.h "$stage/"
+          cp target/release/anima "$stage/anima-cli"
+          cp -r samples/minimal "$stage/samples/"
+          echo "STAGE=$stage" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anima-macOS-universal
+          path: engine/stage/anima-macos-universal
+
+  # ---------------------------------------------------------------- Android
+  # 每个 ABI 一个 cdylib（cargo-ndk 自动落盘到 jniLibs/<abi>/），
+  # 汇总成 .aar —— 宿主 Gradle 直接 implementation(files("anima-android.aar"))，
+  # 运行时 System.loadLibrary("anima") + JNI 按头文件调用。
+  # 引擎不带 GPU 后端（--no-default-features）：Android 端先做数据/求值/物理，
+  # 画面由引擎 scene JSON + 宿主 Vulkan/GL 绘制，后续要自绘再开 gpu feature。
+  android:
+    if: inputs.build_android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r27c
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+      - name: Build all ABIs (no GPU backend)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          # -o jniLibs：cargo-ndk 自动创建 jniLibs/<abi>/libanima.so
+          cargo ndk -t aarch64-linux-android   -p 21 -o jniLibs build -p am-ffi --release --no-default-features
+          cargo ndk -t armv7-linux-androideabi -p 21 -o jniLibs build -p am-ffi --release --no-default-features
+          cargo ndk -t x86_64-linux-android    -p 21 -o jniLibs build -p am-ffi --release --no-default-features
+          cargo ndk -t i686-linux-android      -p 21 -o jniLibs build -p am-ffi --release --no-default-features
+      - name: Assemble .aar
+        run: |
+          # .aar = zip(jni/<abi>/lib*.so + classes.jar + AndroidManifest.xml)
+          mkdir -p aar/jni aar/classes
+          for abi in arm64-v8a armeabi-v7a x86_64 x86; do
+            mkdir -p "aar/jni/$abi"
+            cp "jniLibs/$abi/"*.so "aar/jni/$abi/"
+          done
+          # classes.jar：占位（无 Java API；宿主自己 loadLibrary + JNI）
+          jar --create --file aar/classes.jar -C aar/classes .
+          # 不写 package 属性：AGP 8+ 的库 manifest 由宿主侧命名空间决定
+          cat > aar/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+          EOF
+          (cd aar && zip -r ../anima-android.aar .)
+      - name: Smoke test (host CLI, same core)
+        run: cargo run -p am-cli -- validate samples/minimal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anima-Android
+          path: engine/anima-android.aar
+
+  # ---------------------------------------------------------------- iOS
+  # App Store 禁止在 App 里带 dylib → 交付物用 **staticlib**（libanima.a），
+  # 打成 XCFramework（设备 arm64 + 模拟器 arm64/x86_64）。
+  # 同一 platform+variant 的多个 slice 必须先 lipo 合并，xcframework 才收。
+  # 带 GPU 后端（wgpu Metal）：iOS 是渲染平台，引擎自绘可用。
+  ios:
+    if: inputs.build_ios
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Build device + simulator slices (staticlib, Metal on)
+        run: |
+          cargo build -p am-ffi --release --target aarch64-apple-ios
+          cargo build -p am-ffi --release --target aarch64-apple-ios-sim
+          cargo build -p am-ffi --release --target x86_64-apple-ios
+      - name: Create XCFramework
+        run: |
+          mkdir -p ios-sim target/universal-ios-sim ios-headers
+          cp crates/am-ffi/bindings/include/anima.h ios-headers/
+          # 模拟器两 slice（arm64-sim 与 x86_64）同属 iOS Simulator → 先 lipo
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/libanima.a \
+            target/x86_64-apple-ios/release/libanima.a \
+            -output target/universal-ios-sim/libanima.a
+          xcodebuild -create-xcframework \
+            -library target/aarch64-apple-ios/release/libanima.a \
+            -headers ios-headers \
+            -library target/universal-ios-sim/libanima.a \
+            -headers ios-headers \
+            -output anima.xcframework
+      - name: Verify slices
+        run: |
+          find anima.xcframework -name '*.a' -exec lipo -info {} \;
+          test -f anima.xcframework/ios-arm64/libanima.a
+          test -f anima.xcframework/ios-arm64_x86_64-simulator/libanima.a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anima-iOS-XCFramework
+          path: engine/anima.xcframework
+
+  # ---------------------------------------------------------------- Web
+  web:
+    if: inputs.build_web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Install wasm-bindgen-cli (must match crate version)
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - name: Test on host (no GPU)
+        run: cargo test -p am-wasm
+      - name: Build wasm ES module
+        run: |
+          cargo build -p am-wasm --release --target wasm32-unknown-unknown --no-default-features
+          wasm-bindgen --target web --out-dir pkg \
+            target/wasm32-unknown-unknown/release/anima_wasm.wasm
+      - name: Check output
+        run: |
+          test -f pkg/anima_wasm.js
+          test -f pkg/anima_wasm_bg.wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anima-Web
+          path: engine/pkg
