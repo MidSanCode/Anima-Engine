@@ -49,7 +49,8 @@ System.loadLibrary("anima")
 
 ### 1.3 已知约束
 
-* `minSdkVersion 21`（`cargo-ndk -p 21`；wgpu 的 GLES 后端实际要求更高，无 GPU 路线不受影响）。
+* `minSdkVersion 21`（`cargo ndk -P 21`，注意 platform 是**大写 `-P`**：cargo-ndk 4.x 起
+  `-p` 已被让给 cargo 的 `--package`；wgpu 的 GLES 后端实际要求更高，无 GPU 路线不受影响）。
 * `libanima.so` 若出现 `text relocations` 报错（老旧 NDK 产物问题），需 API ≥ 23；
   r27c 产物不会。
 * 16 KB page size（Android 15+ 对 arm64 的要求）：NDK r27+ 默认对齐 16 KB，

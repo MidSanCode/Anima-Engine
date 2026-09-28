@@ -178,16 +178,22 @@ jobs:
         with:
           workspaces: .
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
+        # 锁大版本：cargo-ndk 4.x 把 platform 从 -p 改成 -P（-p 现在是 cargo 的
+        # --package），换大版本可能再次改名，锁住避免构建意外失败。
+        run: cargo install cargo-ndk --version "^4" --locked
       - name: Build all ABIs (no GPU backend)
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
-          # -o jniLibs：cargo-ndk 自动创建 jniLibs/<abi>/libanima.so
-          cargo ndk -t aarch64-linux-android   -p 21 -o jniLibs build -p am-ffi --release --no-default-features
-          cargo ndk -t armv7-linux-androideabi -p 21 -o jniLibs build -p am-ffi --release --no-default-features
-          cargo ndk -t x86_64-linux-android    -p 21 -o jniLibs build -p am-ffi --release --no-default-features
-          cargo ndk -t i686-linux-android      -p 21 -o jniLibs build -p am-ffi --release --no-default-features
+          # -t 可用 Android ABI 名；-o 让 cargo-ndk 自动落到 jniLibs/<abi>/libanima.so
+          # 注意 -P 是 platform(API level)，不能写成 -p（那会被当成包名）。
+          cargo ndk \
+            -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 \
+            -P 21 \
+            -o jniLibs \
+            build -p am-ffi --release --no-default-features
+          echo "--- 产物 ---"
+          find jniLibs -name '*.so' | sort
       - name: Assemble .aar
         run: |
           # .aar = zip(jni/<abi>/lib*.so + classes.jar + AndroidManifest.xml)
