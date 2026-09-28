@@ -6,6 +6,10 @@ license.workspace = true
 description = "Anima engine crate: am-wasm"
 
 [lib]
+# 产物名必须是 anima_wasm.wasm：docs/ffi-contract.md 与 crates/am-wasm/src/lib.rs
+# 的构建说明都按这个名字写。默认 [lib] 名跟着 crate 包名（am_wasm），
+# 于是 wasm-bindgen 那一步会因找不到 anima_wasm.wasm 直接失败。
+name = "anima_wasm"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

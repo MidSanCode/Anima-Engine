@@ -6,3 +6,9 @@ dist/
 *.amproj
 *.amproj.sha256
 .DS_Store
+# 构建暂存与工作目录（CI 中间产物，不入库）
+stage/
+pkg/
+jniLibs/
+aar/
+*.xcframework/

@@ -5,10 +5,15 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+# 与仓库根目录 LICENSE 一致：该文件只是 GNU LGPL v2.1 的全文，没有附加
+# 「or later」授权，所以取 LGPL-2.1-only（若本意是「或更高版本」，改成
+# LGPL-2.1-or-later 即可）。
+# 此前这里写的是 MIT，与 LICENSE 文件互相矛盾：Cargo 元数据会告诉使用者
+# 「MIT」，而实际交付的是 LGPL 条款，会直接误导下游的合规判断。
+license = "LGPL-2.1-only"
 authors = ["Anima"]
 rust-version = "1.90"
-repository = "https://example.invalid/anima/engine"
+repository = "https://github.com/midsancode/anima-engine"
 
 [workspace.dependencies]
 am-math = { path = "crates/am-math" }
