@@ -164,7 +164,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # 不用 setup-android：ubuntu-latest 预装完整 Android SDK（含 sdkmanager/
+      # platform-tools），而 setup-android@v3 会尝试安装已废弃的 'tools' 包
+      # 导致 sdkmanager 退出 1。唯一缺的是 NDK，由 setup-ndk 提供。
       - uses: nttld/setup-ndk@v1
         id: ndk
         with:
@@ -232,7 +234,7 @@ jobs:
           cargo build -p am-ffi --release --target x86_64-apple-ios
       - name: Create XCFramework
         run: |
-          mkdir -p ios-sim target/universal-ios-sim ios-headers
+          mkdir -p target/universal-ios-sim ios-headers
           cp crates/am-ffi/bindings/include/anima.h ios-headers/
           # 模拟器两 slice（arm64-sim 与 x86_64）同属 iOS Simulator → 先 lipo
           lipo -create \
@@ -371,6 +373,12 @@ jobs:
           fi
           echo "--- 本次资产 ---"
           find out -type f | sort
+      # 合集包：把本次构建出来的平台拼成一个 anima-engine-all.zip。
+      # 宿主仓库只要配**一个** ENGINE_URL 指向它，就不必逐个平台配地址、
+      # 也就不会漏配某一个导致那个平台悄悄退化成内置实现。
+      - name: Pack combined bundle
+        run: bash .github/scripts/pack_bundle.sh out "$VERSION" "${{ github.run_number }}"
+
       - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
