@@ -31,6 +31,13 @@ on:
         description: 'Web (wasm-bindgen ES module)'
         type: boolean
         default: false
+      publish_release:
+        description: '发布到 Releases（标题与 tag = 版本号+构建数字）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -243,10 +250,14 @@ jobs:
           find anima.xcframework -name '*.a' -exec lipo -info {} \;
           test -f anima.xcframework/ios-arm64/libanima.a
           test -f anima.xcframework/ios-arm64_x86_64-simulator/libanima.a
+      # upload-artifact 上传目录时只保留**内容**，.xcframework 这层目录名会丢，
+      # 下游无论注入还是发布都拿不到那个名字，所以这里先自己打包成 zip。
+      - name: Package XCFramework
+        run: zip -qry anima-engine-ios.xcframework.zip anima.xcframework
       - uses: actions/upload-artifact@v4
         with:
           name: anima-iOS-XCFramework
-          path: anima.xcframework
+          path: anima-engine-ios.xcframework.zip
 
   # ---------------------------------------------------------------- Web
   web:
@@ -277,3 +288,121 @@ jobs:
         with:
           name: anima-Web
           path: pkg
+
+
+  # ---------------------------------------------------------------- Release
+  # 勾选 publish_release 才跑：把各平台本次**构建成功**的产物，按稳定文件名打成
+  # 资产挂到 GitHub Release。editor / viewer 侧用
+  #   https://github.com/midsancode/anima-engine/releases/latest/download/<资产名>
+  # 匿名直链下载（latest/download 永远指向最新 release），配置一次长期沿用。
+  # 标题与 tag 都是「版本号+构建数字」（如 0.1.0+12），与编辑器/查看器口径一致。
+  # 已存在的同名资产跳过上传 → 重复运行幂等，只补缺的那几个。
+  release:
+    needs: [windows, linux, macos, android, ios, web]
+    # 用 !cancelled() 而不是 !failure()：某平台失败时仍把**成功**的那些发出去。
+    if: ${{ always() && !cancelled() && inputs.publish_release && (inputs.build_windows || inputs.build_linux || inputs.build_macos || inputs.build_android || inputs.build_ios || inputs.build_web) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      # 不 merge：各 artifact 各占一个子目录，打包时不会把别的平台的产物卷进来。
+      # 没勾的平台没有同名 artifact，这个 action 会报错，交给后面判断。
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+        continue-on-error: true
+      - name: Read engine version
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | sed 's/^version = "//; s/"$//' | tr -d '\r')
+          [ -n "$VERSION" ] || { echo "::error::Cargo.toml 里读不到 version"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=${VERSION}+${{ github.run_number }}" >> "$GITHUB_ENV"
+      - name: Package assets
+        run: |
+          set -euo pipefail
+          mkdir -p dist out
+          # 按「标记文件」定位该平台的 artifact 子目录，再只打包那个目录。
+          # 直接 zip 解包后的 dist 根目录会把所有平台卷进同一个包。
+          pack_dir() {  # $1=标记文件 $2=输出资产名 $3=zip|tgz
+            local marker="$1" name="$2" kind="$3"
+            local hit dir
+            hit=$(find dist -name "$marker" -type f -print -quit)
+            if [ -z "$hit" ]; then
+              echo "::warning::$marker 不在产物里，跳过 $name"
+              return 0
+            fi
+            dir=$(dirname "$hit")
+            case "$kind" in
+              zip) (cd "$dir" && zip -qr "$GITHUB_WORKSPACE/out/$name" .) ;;
+              tgz) tar -czf "out/$name" -C "$dir" . ;;
+            esac
+            echo "打包 $name  <-  $dir"
+          }
+          pack_file() { # $1=标记文件 $2=输出资产名
+            local hit
+            hit=$(find dist -name "$1" -type f -print -quit)
+            if [ -z "$hit" ]; then
+              echo "::warning::$1 不在产物里，跳过 $2"
+              return 0
+            fi
+            cp "$hit" "out/$2"
+            echo "打包 $2  <-  $hit"
+          }
+          # 注意用 if/fi 而不是 `[ x ] && cmd`：set -e 下条件为假会直接终止脚本。
+          if [ "${{ inputs.build_windows }}" = "true" ]; then
+            pack_dir anima.dll anima-engine-windows-x64.zip zip
+          fi
+          if [ "${{ inputs.build_linux }}" = "true" ]; then
+            pack_dir libanima.so anima-engine-linux-x64.tar.gz tgz
+          fi
+          if [ "${{ inputs.build_macos }}" = "true" ]; then
+            pack_dir libanima.dylib anima-engine-macos-universal.tar.gz tgz
+          fi
+          if [ "${{ inputs.build_android }}" = "true" ]; then
+            pack_file anima-android.aar anima-engine-android.aar
+          fi
+          if [ "${{ inputs.build_ios }}" = "true" ]; then
+            pack_file anima-engine-ios.xcframework.zip anima-engine-ios.xcframework.zip
+          fi
+          if [ "${{ inputs.build_web }}" = "true" ]; then
+            pack_dir anima_wasm.js anima-engine-web.zip zip
+          fi
+          echo "--- 本次资产 ---"
+          find out -type f | sort
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          FILES=$(find out -type f | sort)
+          if [ -z "$FILES" ]; then
+            echo "::error::一个资产都没打出来，不建空 Release"
+            exit 1
+          fi
+          NOTES=$(printf 'Anima Engine %s\n\n- build: %s\n- commit: %s\n' \
+            "$VERSION" "${{ github.run_number }}" "$GITHUB_SHA")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，补齐缺失资产"
+          else
+            gh release create "$TAG" --title "$TAG" --target "$GITHUB_SHA" --notes "$NOTES"
+          fi
+          EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          upload=()
+          for f in $FILES; do
+            base=$(basename "$f")
+            # here-string 而非管道：pipefail 下 grep -q 提前退出可能让 printf 吃 SIGPIPE。
+            if [ -n "$EXISTING" ] && grep -Fxq -- "$base" <<< "$EXISTING"; then
+              echo "跳过已存在：$base"
+              continue
+            fi
+            upload+=("$f")
+          done
+          if [ ${#upload[@]} -eq 0 ]; then
+            echo "所有资产都已存在，无需上传"
+          else
+            gh release upload "$TAG" "${upload[@]}"
+          fi
+          echo "Release: $(gh release view "$TAG" --json url --jq .url)"
