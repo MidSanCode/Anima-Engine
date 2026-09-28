@@ -379,12 +379,6 @@ jobs:
           fi
           echo "--- 本次资产 ---"
           find out -type f | sort
-      # 合集包：把本次构建出来的平台拼成一个 anima-engine-all.zip。
-      # 宿主仓库只要配**一个** ENGINE_URL 指向它，就不必逐个平台配地址、
-      # 也就不会漏配某一个导致那个平台悄悄退化成内置实现。
-      - name: Pack combined bundle
-        run: bash .github/scripts/pack_bundle.sh out "$VERSION" "${{ github.run_number }}"
-
       - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

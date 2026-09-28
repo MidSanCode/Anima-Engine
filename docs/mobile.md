@@ -155,20 +155,7 @@ anima.xcframework
 ## 5. 交付与消费
 
 本仓库的 `.github/workflows/build.yml` 在六个平台构建，勾选 `publish_release` 后发布到
-Releases，**资产名固定、不含版本号**，于是宿主仓库可以直接用「永远指向最新发布」的直链，
-配一次长期有效：
-
-**推荐宿主只配一个** `ENGINE_URL`，指向合集包 —— 它把本次构建出来的平台按目录分好
-（`windows/` `linux/` `macos/` `android/` `ios/` `web/`），宿主每个构建作业只从里面取
-自己平台需要的那几个文件。这样宿主不必逐个平台配地址，也就不会漏配某一个、导致那个
-平台悄悄退化成内置实现：
-
-```text
-https://github.com/midsancode/anima-engine/releases/latest/download/anima-engine-all.zip
-```
-
-合集包由 `pack_bundle.sh` 从各平台资产拼出（只含本次确实构建成功的平台）。宿主若想
-单独钉某个平台，仍可用下面的单平台资产：
+Releases，**资产名固定、不含版本号**：
 
 | 平台 | 资产名 |
 | --- | --- |
@@ -179,11 +166,20 @@ https://github.com/midsancode/anima-engine/releases/latest/download/anima-engine
 | iOS | `anima-engine-ios.xcframework.zip` |
 | Web | `anima-engine-web.zip` |
 
-```text
-https://github.com/midsancode/anima-engine/releases/latest/download/<资产名>
-```
+**宿主什么都不用配。** 宿主的构建会自动遍历本仓库的 Releases：**从最新版开始往回找**，
+最多看 5 个版本，取第一个带本平台产物的；那个版本没有本平台产物就继续回退；最近 5 个
+版本都没有就跳过注入（宿主产物用内置实现，构建不会失败）。
 
-宿主仓库把上面这些地址配成 `ENGINE_{WINDOWS,LINUX,MACOS,ANDROID,IOS,WEB}_URL` 仓库变量，
-构建时自动注入对应产物。Web 端消费的是 wasm-bindgen 的 ES 模块
-（`anima_wasm.js` + `anima_wasm_bg.wasm`），调用面与 C ABI **同构**：同样是
+这条规则让两边解耦：某次构建恰好没产出某个平台（或某个平台临时构建失败），宿主会自动
+落在上一个能用的版本上，**不需要人工干预，也不会发一个悄悄退化的包出去**。
+
+因此本仓库发布时注意两点：
+
+- **资产名是宿主的查找依据，不要改名。** 改了名宿主就找不到，会一路回退到空手而归。
+- **成功一个平台就发布一个平台。** 不必为了「凑齐六个」而阻塞发布 —— 缺的那个平台
+  宿主会自己回退到上一个有它的版本。
+
+宿主想钉死地址时才配 `ENGINE_{WINDOWS,LINUX,MACOS,ANDROID,IOS,WEB}_URL`（配了就不
+再自动回退），或者用 `ANIMA_ENGINE_REPO` 指向镜像仓库。Web 端消费的是 wasm-bindgen 的
+ES 模块（`anima_wasm.js` + `anima_wasm_bg.wasm`），调用面与 C ABI **同构**：同样是
 「方法名 + JSON 参数 → JSON 信封」，所以宿主侧两套后端共用同一份上层代码。
