@@ -3,8 +3,10 @@
 Live2D 类 2D 角色创建与展示工具的**引擎**。Rust 实现，跨平台（Windows / macOS / Linux / Web），
 对外只暴露一层 JSON 方法协议（C ABI 与 wasm 完全同构）。
 
+仓库根目录**就是** Cargo 工作区根；下面直接列出本仓库的内容
+（不存在 `engine/` 这种再套一层子目录）：
+
 ```text
-engine/
 ├── crates/
 │   ├── am-math      二维数学（Vec2 / Mat3 / Rect / 仿射）
 │   ├── am-format    .amproj 读写、校验、打包、sha256
@@ -22,9 +24,13 @@ engine/
 ├── docs/
 │   ├── ffi-contract.md   ★ 编辑器/查看器对接的唯一契约
 │   └── format.md         .amproj 格式规范
-├── samples/minimal       最小可运行工程
-└── flutter/anima_engine  Flutter 插件（Windows 外部纹理桥，进行中）
+├── bindings/include/anima.h   C ABI 头文件（宿主直接 include）
+├── .github/workflows/build.yml  六平台构建 + 发布为 Releases
+└── samples/minimal       最小可运行工程
 ```
+
+各平台产物形态与「编辑器/查看器怎么消费」见 `docs/mobile.md` 与
+`docs/ffi-contract.md`。
 
 ## 快速开始
 
@@ -79,6 +85,10 @@ GPU 测试会真的创建适配器，单次约 30 秒；测试间用 `OnceLock<M
 
 ## 当前状态
 
-引擎核心（格式 / 求值 / 渲染 / 编辑 / 物理 / 动作 / FFI / CLI）已完成并通过全量测试。
-尚未完成的是**跨平台对外 SDK**部分：Flutter 插件的 Windows 外部纹理桥、Dart/JS 绑定包、
-JSON Schema、网格自动生成与 PSD 导入。详见仓库根目录 `tasks.md` §9。
+引擎核心（格式 / 求值 / 渲染 / 编辑 / 物理 / 动作 / FFI / CLI / wasm）已完成并通过
+全量测试。对外交付物已经齐了：C ABI 动态库 + 静态库、Android `.aar`、iOS
+`.xcframework`、wasm-bindgen ES 模块，由 `.github/workflows/build.yml` 在六个平台上
+构建，勾选 `publish_release` 后按固定资产名发布到 Releases，供编辑器/查看器匿名直链拉取。
+
+尚未完成的是**宿主侧的画面桥**：Windows 外部纹理桥、Android `SurfaceTexture` /
+iOS `IOSurface` 绑定，以及网格自动生成与 PSD 导入。

@@ -59,9 +59,11 @@ System.loadLibrary("anima")
 
 ### 1.4 Android 上 Flutter（editor/viewer 的移动版）
 
-`engine/flutter/anima_engine` 插件里加 Android 实现：
+编辑器/查看器仓库的 CI 直接消费本仓库发布的 `.aar`，**没有中间插件层**：
 
-1. 插件 `android/build.gradle` 依赖 `.aar`（或直接把 jniLibs 放进插件模块）；
+1. CI 下载 `anima-engine-android.aar`，解出 `jni/<abi>/libanima.so`，放到
+   `android/app/src/main/jniLibs/<abi>/`（`src/main/jniLibs` 是 AGP 默认源目录，
+   随 APK 打包；`.aar` 里的 `classes.jar` 是空壳，不需要 `implementation` 它）；
 2. Dart FFI 在 Android 上 `DynamicLibrary.open("libanima.so")` —— 契约与 Windows 完全一致；
 3. 画面：短期用「引擎 JSON scene + Flutter 侧 `CustomPainter`/着色器」，
    中期切换 `Texture` + 外部纹理（Android 的外部纹理桥走
@@ -114,8 +116,9 @@ anima.xcframework
 
 与 Android 对称：
 
-1. `engine/flutter/anima_engine` 插件的 `ios/` 目录里放
-   `anima.xcframework`（podspec `vendored_frameworks`）或 `libanima.a`（`vendored_libraries`）；
+1. CI 下载 `anima-engine-ios.xcframework.zip`，解出 `anima.xcframework` 放到 app 仓库的
+   `ios/` 下，并往 `ios/Flutter/{Debug,Release}.xcconfig` 追加 `-force_load`（静态库必须显式
+   链接：App Store 不允许内嵌 dylib，所以不能像桌面那样「放进 bundle 就完事」）；
 2. Dart FFI 在 iOS 上 `DynamicLibrary.process()`（静态链接进主二进制时）或
    `DynamicLibrary.open("libanima.a")` 失败时回落 `DynamicLibrary.executable()`；
    注意 iOS 上静态符号要用 `DynamicLibrary.process()` 查找；
@@ -141,6 +144,33 @@ anima.xcframework
    风险最低、能尽早验证 FFI 在 ARM 上的正确性；
 3. **iOS XCFramework**：直接带 Metal，真机渲染一步到位；
 4. **Flutter 外部纹理桥**：Android（SurfaceTexture）与 iOS（IOSurface）分开做 PoC，
-   接口统一到 `engine/flutter/anima_engine` 的 Dart 侧 API；
+   接口统一到 app 仓库的 `lib/core/engine/` 抽象层（`AmEngine` 接口，见
+   `docs/ffi-contract.md`）；
 5. 最后做 **Android GPU 路线**（Vulkan/GLES 离屏 + AHardwareBuffer），
    需要真机矩阵驱动调优。
+
+---
+
+## 5. 交付与消费
+
+本仓库的 `.github/workflows/build.yml` 在六个平台构建，勾选 `publish_release` 后发布到
+Releases，**资产名固定、不含版本号**，于是宿主仓库可以直接用「永远指向最新发布」的直链，
+配一次长期有效（`<owner>/<repo>` 换成实际值）：
+
+| 平台 | 资产名 |
+| --- | --- |
+| Windows | `anima-engine-windows-x64.zip` |
+| Linux | `anima-engine-linux-x64.tar.gz` |
+| macOS | `anima-engine-macos-universal.tar.gz` |
+| Android | `anima-engine-android.aar` |
+| iOS | `anima-engine-ios.xcframework.zip` |
+| Web | `anima-engine-web.zip` |
+
+```text
+https://github.com/midsancode/anima-engine/releases/latest/download/<资产名>
+```
+
+宿主仓库把上面这些地址配成 `ENGINE_{WINDOWS,LINUX,MACOS,ANDROID,IOS,WEB}_URL` 仓库变量，
+构建时自动注入对应产物。Web 端消费的是 wasm-bindgen 的 ES 模块
+（`anima_wasm.js` + `anima_wasm_bg.wasm`），调用面与 C ABI **同构**：同样是
+「方法名 + JSON 参数 → JSON 信封」，所以宿主侧两套后端共用同一份上层代码。

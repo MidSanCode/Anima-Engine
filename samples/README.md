@@ -33,7 +33,7 @@ target/debug/anima export   samples/minimal minimal.amproj
 用编辑器打开：
 
 ```bash
-# 编辑器（另一个仓库）
+# 编辑器（另一个仓库，克隆到与本仓库同级时）
 flutter run -d windows -- --project ../engine/samples/minimal
 ```
 

@@ -10,8 +10,9 @@
 
 ## 1. 构建与产物
 
+本仓库根目录就是 Cargo 工作区根（没有多余的 `engine/` 子目录）。
+
 ```bash
-cd engine
 cargo build -p am-ffi --release          # Windows: target/release/anima.dll + anima.dll.lib
 cargo test  --workspace                  # 全量测试（约 300 个用例）
 ```
@@ -20,7 +21,13 @@ cargo test  --workspace                  # 全量测试（约 300 个用例）
 | --- | --- | --- |
 | Windows | `anima.dll`、`anima.dll.lib` | `crate-type = ["cdylib", "staticlib", "rlib"]` |
 | macOS / Linux | `libanima.dylib` / `libanima.so` | 同上 |
-| Web | `anima_wasm.wasm`（`cargo build -p am-wasm --target wasm32-unknown-unknown`） | 方法名与参数完全一致 |
+| Android | `anima-android.aar`（内含 `jni/<abi>/libanima.so`） | `--no-default-features`，无 GPU |
+| iOS | `anima.xcframework`（内含静态库 `libanima.a`） | `staticlib`；App Store 不允许内嵌 dylib |
+| Web | `anima_wasm.js` + `anima_wasm_bg.wasm`（wasm-bindgen ES 模块） | 方法名与参数完全一致 |
+
+Android / iOS / Web 这三种产物由 `.github/workflows/build.yml` 构建，勾选
+`publish_release` 后按固定资产名发布到 Releases，宿主仓库直接匿名直链消费
+（见 `docs/mobile.md` §5）。
 
 **关闭渲染后端**（体积敏感、或不需要引擎自绘）：
 
