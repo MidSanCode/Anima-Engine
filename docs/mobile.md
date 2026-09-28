@@ -155,7 +155,19 @@ anima.xcframework
 
 本仓库的 `.github/workflows/build.yml` 在六个平台构建，勾选 `publish_release` 后发布到
 Releases，**资产名固定、不含版本号**，于是宿主仓库可以直接用「永远指向最新发布」的直链，
-配一次长期有效（`<owner>/<repo>` 换成实际值）：
+配一次长期有效：
+
+**推荐宿主只配一个** `ENGINE_URL`，指向合集包 —— 它把本次构建出来的平台按目录分好
+（`windows/` `linux/` `macos/` `android/` `ios/` `web/`），宿主每个构建作业只从里面取
+自己平台需要的那几个文件。这样宿主不必逐个平台配地址，也就不会漏配某一个、导致那个
+平台悄悄退化成内置实现：
+
+```text
+https://github.com/midsancode/anima-engine/releases/latest/download/anima-engine-all.zip
+```
+
+合集包由 `pack_bundle.sh` 从各平台资产拼出（只含本次确实构建成功的平台）。宿主若想
+单独钉某个平台，仍可用下面的单平台资产：
 
 | 平台 | 资产名 |
 | --- | --- |
