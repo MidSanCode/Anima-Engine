@@ -64,7 +64,7 @@ impl Canvas {
         Rect::from_center_size(self.origin, self.size())
     }
 
-    /// 从包围盒自动确定画布（用于 PSD 导入后没有显式画布的情况）。
+    /// 从包围盒自动确定画布（用于分层位图导入后没有显式画布的情况）。
     pub fn fit_to(&mut self, bounds: Rect) {
         let size = bounds.size();
         self.width = size.x.max(1.0);

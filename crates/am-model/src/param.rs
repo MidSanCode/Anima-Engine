@@ -116,7 +116,7 @@ impl Parameter {
         keys
     }
 
-    /// 把关键点序列化为 Live2D 风格的 `{min, default, max}` 三元组形式（供 UI 展示）。
+    /// 把关键点序列化为 `{min, default, max}` 三元组形式（供 UI 展示）。
     pub fn key_span(&self) -> (f32, f32, f32) {
         (self.min, self.default, self.max)
     }
