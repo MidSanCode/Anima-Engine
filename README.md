@@ -56,13 +56,14 @@ The repository root **is** the Cargo workspace root (there is no nested `engine/
 │   ├── am-doc       command system + undo/redo
 │   ├── am-physics   deterministic physics
 │   ├── am-motion    motion playback (curves, looping, cross-fade)
-│   ├── am-core      session facade + JSON method dispatch (47 methods)
+│   ├── am-anim      prerender animation: channels, baked track, bake pipeline
+│   ├── am-core      session facade + JSON method dispatch (75 methods)
 │   ├── am-ffi       C ABI (cdylib/staticlib) + bindings/include/anima.h
 │   ├── am-wasm      wasm-bindgen binding
 │   └── am-cli       `anima` command-line tool
 ├── schemas/         JSON Schemas (envelope / format / model / spec / command)
 ├── docs/
-│   ├── ffi-contract.md   the contract hosts integrate against
+│   ├── ffi-contract.md   the contract hosts integrate against (incl. §4.10 animation.*)
 │   ├── format.md         .amproj format specification
 │   ├── artifacts.md      checksums of the already-built binaries in target/
 │   └── mobile.md         Android / iOS delivery and integration
@@ -128,6 +129,7 @@ Read these before changing code:
 | Unit tests | `src/**/tests` in each crate | math, format, evaluation, commands, physics, motion |
 | GPU integration | `crates/am-render/tests/render.rs` | real device rendering with per-pixel assertions |
 | Protocol contract | `crates/am-core/tests/api.rs` | 21 cases through `dispatch_json`, locking the envelope and method shapes |
+| Animation contract | `crates/am-core/tests/animation_api.rs` | 33 cases: mode exclusion, error codes, bake → seek → params, bit-identical re-bake |
 | Schema conformance | `crates/am-format/tests/schemas.rs` | the schemas constrain real project files and real call payloads |
 | C ABI | `crates/am-ffi/tests/ffi.rs` | the engine driven only through the C ABI, including rendering and callbacks |
 | CLI | `crates/am-cli/src/main.rs` | create → validate → render → export |
@@ -190,13 +192,14 @@ Anima Engine 是 2D 角色创作与播放链路的**核心**：它负责模型�
 │   ├── am-doc       命令系统 + 撤销/重做
 │   ├── am-physics   确定性物理
 │   ├── am-motion    动作播放（曲线、循环、交叉淡化）
-│   ├── am-core      会话门面 + JSON 方法分发（47 个方法）
+│   ├── am-anim      预渲染动画：通道、烘焙轨、烘焙管线
+│   ├── am-core      会话门面 + JSON 方法分发（75 个方法）
 │   ├── am-ffi       C ABI（cdylib/staticlib）+ bindings/include/anima.h
 │   ├── am-wasm      wasm-bindgen 绑定
 │   └── am-cli       anima 命令行工具
 ├── schemas/         JSON Schema（envelope / format / model / spec / command）
 ├── docs/
-│   ├── ffi-contract.md   宿主对接的唯一契约
+│   ├── ffi-contract.md   宿主对接的唯一契约（含 §4.10 animation.*）
 │   ├── format.md         .amproj 格式规范
 │   ├── artifacts.md      target/ 里已构建产物的校验和（暂不可重建时的追溯依据）
 │   └── mobile.md         Android / iOS 交付与接入
@@ -252,6 +255,7 @@ cargo run -p am-cli -- render   samples/minimal -o preview.png --width 256 --hei
 | 单元测试 | 各 crate `src/**/tests` | 数学、格式、求值、命令、物理、动作 |
 | GPU 集成测试 | `crates/am-render/tests/render.rs` | 真实设备渲染 + 逐像素断言 |
 | 协议契约测试 | `crates/am-core/tests/api.rs` | 21 个用例走 `dispatch_json`，锁死信封与方法形状 |
+| 动画契约测试 | `crates/am-core/tests/animation_api.rs` | 33 个用例：模式互斥、错误码、烘焙→seek→参数、重复烘焙逐位一致 |
 | Schema 一致性测试 | `crates/am-format/tests/schemas.rs` | schema 约束真实工程文件与真实调用数据 |
 | C ABI 测试 | `crates/am-ffi/tests/ffi.rs` | 只通过 C ABI 驱动引擎，含渲染与事件回调 |
 | CLI 测试 | `crates/am-cli/src/main.rs` | 建工程 → 校验 → 渲染 → 导出 |

@@ -33,6 +33,11 @@ impl Session {
         if !method.starts_with("animation.") {
             return Ok(None);
         }
+        // 未知的 animation.* 应当是 METHOD_NOT_FOUND，而不是「参数非法」——
+        // 宿主会拿这个码判断能力缺失。这里先查清单，避免误报。
+        if !crate::METHODS.contains(&method) {
+            return Err(crate::ApiError::method_not_found(method));
+        }
         let result = self.animation_inner(method, params)?;
         Ok(Some(result))
     }
@@ -70,7 +75,6 @@ impl Session {
             other => Err(AnimationError::InvalidParams(format!("未知方法：{other}"))),
         }
     }
-
     // ------------------------------------------------------------ 模式
 
     fn animation_mode(&self) -> Value {

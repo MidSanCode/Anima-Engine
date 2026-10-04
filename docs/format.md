@@ -31,7 +31,7 @@
 │   └── images/0.png
 ├── metadata/                 资源档案，路径 = assets/ 去掉前缀后 + ".json"
 │   └── images/0.png.json
-├── spec/                     描述层（模型、物理、动作、表情…）
+├── spec/                     描述层（模型、物理、动作、表情、动画…）
 │   ├── model.json            结构模型（必需，引擎的最小可运行集合）
 │   ├── physics.json          物理设定（可选）
 │   ├── pose.json             姿势组（可选）
@@ -40,7 +40,8 @@
 │   ├── overview.md           说明文档（可选，不参与校验）
 │   ├── steps.json            制作步骤（可选）
 │   ├── motions/<id>.motion.json
-│   └── expressions/<id>.exp.json
+│   ├── expressions/<id>.exp.json
+│   └── animations/<id>.anim.json   预渲染动画（可选，含烘焙轨）
 ├── work/                     中间产物（不导出）
 └── dist/                     导出产物（不导出）
 ```
@@ -107,7 +108,13 @@
 * `spec/model.json` 是引擎运行的最小集合，缺失视为工程损坏。
 * `spec/motions/<id>.motion.json` 与 `spec/expressions/<id>.exp.json` **文件名即 id**
   （`^[a-z0-9_-]+$`），id 必须与文件内容里的 `id` 一致。
-* 其余文件缺失时按默认值处理（物理为空、无动作、无表情）。
+* `spec/animations/<id>.anim.json` 同样是**文件名即 id**，但 id 规则更严：
+  只允许小写字母、数字、`_`、`-`（大写会被拒绝，避免大小写不敏感的文件系统上出现歧义）。
+  一段动画自带通道（曲线）与可选的 `track`（烘焙产物），结构见
+  [`docs/animation-mode.md`](../../docs/animation-mode.md)。
+* 写回 `spec/` 时会**清理 `spec/animations/` 下不再被引用的文件**，
+  否则编辑器里删掉的动画会在重开工程时复活。
+* 其余文件缺失时按默认值处理（物理为空、无动作、无表情、无动画）。
 
 ---
 

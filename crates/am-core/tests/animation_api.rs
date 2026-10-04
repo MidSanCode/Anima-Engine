@@ -67,6 +67,43 @@ fn error_code(error: &Value) -> i64 {
     error["code"].as_i64().unwrap_or(0)
 }
 
+#[test]
+fn every_advertised_animation_method_is_callable() {
+    // 能力清单里声明的每个 animation.* 都必须真的能被分发 ——
+    // 否则宿主探测到能力、调用却拿到 `-32601`，是「说不支持又不说不支持」的坏状态。
+    let mut session = Session::empty();
+    let capabilities = call(&mut session, "system.capabilities", json!({}));
+    let advertised: Vec<String> = capabilities["methods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .filter(|m| m.starts_with("animation."))
+        .map(|m| m.to_string())
+        .collect();
+
+    assert!(!advertised.is_empty(), "能力清单应包含 animation.*");
+
+    for method in &advertised {
+        // 有的方法不需要参数（如 animation.mode）会直接成功，这是正常的；
+        // 这里只关心它**没有被当成未知方法**。
+        if let Err(error) = try_call(&mut session, method, json!({})) {
+            assert_ne!(
+                error_code(&error),
+                -32601,
+                "{method} 声明在能力清单里却无法分发"
+            );
+        }
+    }
+}
+
+#[test]
+fn undeclared_animation_method_reports_method_not_found() {
+    let mut session = Session::empty();
+    let error = try_call(&mut session, "animation.no_such_method", json!({})).unwrap_err();
+    assert_eq!(error_code(&error), -32601);
+}
+
 // ------------------------------------------------------------ 能力探测
 
 #[test]

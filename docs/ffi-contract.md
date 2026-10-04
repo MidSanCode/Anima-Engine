@@ -94,6 +94,19 @@ const char* am_last_error(void);                                  /* 线程本�
 | `-32602` | 参数非法（缺字段、类型不符、id 不存在、命令执行失败） |
 | `-32603` | 引擎内部错误 |
 | `-32000` | 平台不支持（例如本构建没有渲染后端、渲染器未初始化） |
+| `-32010` | 模式冲突：预渲染模式下不能实时推进（见 §4.10） |
+| `-32011` | 动画尚未烘焙，需要先 `animation.bake` |
+| `-32012` | 动画不存在 |
+
+错误对象可以带一个可选的 **`hint`** —— 推荐宿主执行的修复方法名。
+编辑器可以直接把它渲染成「点这里修好」，不要用字符串匹配去猜：
+
+```json
+{ "ok": false, "error": {
+    "code": -32011,
+    "message": "动画尚未烘焙：idle；请先 animation.bake",
+    "hint": "animation.bake" } }
+```
 
 **宿主必须先调用 `system.capabilities`**，据 `methods` 与 `renderer` 决定可用功能，
 不要硬编码方法清单。
@@ -198,6 +211,102 @@ const char* am_last_error(void);                                  /* 线程本�
 | --- | --- |
 | `diagnostics.stats` | `{ nodes, parameters, textures, motions, expressions, physics, drawables, revision, dirty, frame }` |
 
+### 4.10 `animation.*`（预渲染动画）
+
+完整语义见 [`docs/animation-mode.md`](../../docs/animation-mode.md)（工作区根的规范文档）。
+这里只列方法签名与关键约定。
+
+引擎有两条**互斥**的运行路径：
+
+| 模式 | 时钟 | 参数来源 | `runtime.advance` |
+| --- | --- | --- | --- |
+| `live`（默认） | 由宿主 `dt` 推进 | 动作 / 物理 / 宿主写入 | 允许 |
+| `prerender` | 由 `animation.seek` 决定 | 已烘焙的轨（只读） | `-32010` |
+
+> `prerender` 模式下 **`runtime.scene` / `runtime.params` 仍然可用**，
+> 返回的是轨在当前时刻的值。查看器因此只需要 `animation.seek` +
+> `runtime.scene` 两个调用就能播动画，**不需要**（也不应该）用
+> `runtime.set_param` 去写参数。
+
+**生命周期与播放**
+
+| 方法 | 参数 | 结果 |
+| --- | --- | --- |
+| `animation.mode` | – | `{ mode, open, time, playing, speed, looping }` |
+| `animation.new` | `{ id?, name?, fps?, duration?, looping? }` | `{ id, animation }`；`id` 省略时由 `name` 推导并自动去重 |
+| `animation.open` | `{ id, time? }` | 切到 `prerender` 并定位；**未烘焙**则 `-32011` |
+| `animation.close` | – | 切回 `live` |
+| `animation.play` | `{ id?, looping?, speed?, fade_in? }` | `state` |
+| `animation.pause` | – | `state`；非 `prerender` 模式返回 `-32010` |
+| `animation.resume` | – | `state`；非 `prerender` 模式返回 `-32010` |
+| `animation.stop` | – | 暂停并把时间复位到区间起点 |
+| `animation.seek` | `{ id?, time }` | `{ time, frame, state }`；循环在时间域做（§4.6） |
+| `animation.set_speed` | `{ speed }` | `state`；只影响播放推进，不影响 `seek` |
+| `animation.set_loop` | `{ looping }` | `state`；覆盖动画自身的 `looping` |
+| `animation.state` | – | `{ mode, id, time, playing, speed, looping, fade_in, baked }` |
+
+**查询与元数据**
+
+| 方法 | 参数 | 结果 |
+| --- | --- | --- |
+| `animation.list` | – | `[{ id, name, duration, fps, channels, baked, baked_at }]` |
+| `animation.query` | `{ id?, detail? }` | 摘要；`detail: true` 时返回整段动画 |
+| `animation.set_meta` | `{ id?, name?, fps?, duration?, looping?, comment? }` | 更新后的动画 |
+| `animation.delete` | `{ id? }` | `{ id, deleted }`；删的是当前打开的会一并切回 `live` |
+| `animation.baked` | `{ id? }` | `{ id, baked, fps, frames, duration, baked_at, geometry, bytes }` |
+
+**曲线编辑**
+
+| 方法 | 参数 | 结果 |
+| --- | --- | --- |
+| `animation.channel.add` | `{ id?, kind?, target, color?, enabled? }` | `kind` ∈ `parameter`\|`visibility`\|`draw_order`；`target` 不存在返回 `-32602` |
+| `animation.channel.remove` | `{ id?, kind?, target }` | `{ removed }` |
+| `animation.key.set` | `{ id?, kind?, target, time, value, easing? }` | 同时间点覆盖；`easing` 缺省 `linear` |
+| `animation.key.remove` | `{ id?, kind?, target, time, tolerance? }` | `{ removed }` |
+| `animation.key.move` | `{ id?, kind?, target, from, to, value?, tolerance? }` | 移动并可选改值 |
+| `animation.channel.set_easing` | `{ id?, kind?, target, easing, time?, tolerance? }` | 不带 `time` 则作用于整条通道 |
+| `animation.curve.set` | `{ id?, kind?, target, keys }` | 整段替换，自动按时间升序 |
+
+**烘焙源（overlay，§4.4）**
+
+| 方法 | 参数 | 结果 |
+| --- | --- | --- |
+| `animation.overlay.set` | `{ id?, overlay? \| motions?/expressions?/physics?/auto_effects? }` | 整棵替换或逐字段更新 |
+| `animation.set_param_ref` | `{ id?, motion? \| expression?, weight?, from?, to?, remove? }` | 增删单条引用 |
+
+**烘焙与采样**
+
+| 方法 | 参数 | 结果 |
+| --- | --- | --- |
+| `animation.bake` | `{ id?, fps?, range?, include?, geometry?, baked_at? }` | 见下 |
+| `animation.sample` | `{ id?, time?, geometry? }` | `{ id, time, frame, params, structural, geometry? }` |
+
+`animation.bake` 结果：
+
+```jsonc
+{
+  "id": "idle", "fps": 30.0, "frames": 91, "duration": 3.0,
+  "channels": 3,          // 参数通道列数
+  "points": 273,          // 扁平数组长度 = frames * channels
+  "bytes": 1092,
+  "geometry": "model_ref",// 或 "snapshot"
+  "baked_at": 1789000000,
+  // 仅当几何快照超过 16 MB 时出现（**不是错误**）：
+  "warning": "geometry_snapshot_large",
+  "estimated_bytes": 20971520
+}
+```
+
+* `include` 形如 `{ "physics": bool, "auto_effects": bool, "overlays": bool }`，
+  缺省用动画自身的 overlay 设置。
+* `geometry: "snapshot"` 时预估超过 **256 MB** 直接返回 `-32602`（不会先撑爆内存）；
+  超过 **16 MB** 时正常烘焙但带 `warning`。
+* **烘焙不需要先 `open`**；`open` 也不需要先烘焙过——但没烘焙就不能 `open`。
+
+`animation.sample` 是**只读**的：不写参数、不动时钟、不切模式，
+适合批量采样与离屏渲染。`animation.seek` 则会真正写入参数（`live` 模式下也可调用，
+但会切到 `prerender`）。
+
 ---
 
 ## 5. 数据结构
@@ -215,9 +324,14 @@ const char* am_last_error(void);                                  /* 线程本�
                    "parameter_defaults": { "AngleX": 0.0 }, "motion_groups": {…}, "expression_groups": {…} },
   "motions":     [ { "id", "name", "duration", "looping", "fps", "fade_in", "fade_out", "curves": [ … ] } ],
   "expressions": [ { "id", "name", "fade_in", "fade_out", "parameters": [ { "parameter", "value", "blend", "weight" } ] } ],
+  "animations":  [ { /* 预渲染动画，见 §4.10 与 spec/animations/<id>.anim.json */ } ],
   "config":      { … }   // 可选
 }
 ```
+
+`spec/animations/<id>.anim.json` 是一段预渲染动画的独立文件（结构见
+[`docs/animation-mode.md`](../../docs/animation-mode.md) §4.1）。保存工程时会
+**清理不再被引用的 `anim.json`**，所以编辑器里删掉的动画不会在重开工程后复活。
 
 ### 5.2 结构模型（`doc.model`）
 
