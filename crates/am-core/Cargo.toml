@@ -6,6 +6,7 @@ license.workspace = true
 description = "Anima engine crate: am-core"
 
 [dependencies]
+am-anim.workspace = true
 am-doc.workspace = true
 am-eval.workspace = true
 am-format.workspace = true

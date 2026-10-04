@@ -65,6 +65,7 @@ dependencies = [
 name = "am-core"
 version = "0.1.0"
 dependencies = [
+ "am-anim",
  "am-doc",
  "am-eval",
  "am-format",

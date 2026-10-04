@@ -27,8 +27,13 @@ use serde_json::{json, Value};
 #[cfg(feature = "gpu")]
 use am_render::{decode_file, DecodedImage, Renderer, View};
 
+pub mod animation;
+pub mod animation_dispatch;
 pub mod project;
 
+pub use animation::{
+    find as find_animation, AnimationError, Mode, ModeGuard, ModeState,
+};
 pub use project::{read_spec, write_spec};
 
 /// 引擎版本（同时用于 `system.version` 与项目文件）。
@@ -83,6 +88,35 @@ pub const METHODS: &[&str] = &[
     "renderer.frame",
     "renderer.save_png",
     "diagnostics.stats",
+    // 预渲染动画（见 `docs/animation-mode.md`）
+    "animation.mode",
+    "animation.new",
+    "animation.open",
+    "animation.close",
+    "animation.play",
+    "animation.pause",
+    "animation.resume",
+    "animation.stop",
+    "animation.seek",
+    "animation.set_speed",
+    "animation.set_loop",
+    "animation.state",
+    "animation.list",
+    "animation.query",
+    "animation.set_meta",
+    "animation.delete",
+    "animation.channel.add",
+    "animation.channel.remove",
+    "animation.key.set",
+    "animation.key.remove",
+    "animation.key.move",
+    "animation.channel.set_easing",
+    "animation.curve.set",
+    "animation.overlay.set",
+    "animation.set_param_ref",
+    "animation.bake",
+    "animation.baked",
+    "animation.sample",
 ];
 
 // ------------------------------------------------------------------ 错误
@@ -92,6 +126,10 @@ pub const METHODS: &[&str] = &[
 pub struct ApiError {
     pub code: i32,
     pub message: String,
+    /// 可执行的修复建议（方法名之类）。规范 §9 允许错误带 `hint`，
+    /// 编辑器可以直接把它渲染成「点这里修好」。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
 }
 
 /// JSON-RPC 风格的错误码。
@@ -102,11 +140,22 @@ pub mod codes {
     pub const INTERNAL: i32 = -32603;
     /// 平台不支持（例如没有 GPU 却调用 renderer.*）。
     pub const UNSUPPORTED: i32 = -32000;
+    /// 模式冲突：预渲染模式下不能实时推进（见 `docs/animation-mode.md` §9）。
+    pub const MODE_CONFLICT: i32 = -32010;
+    /// 动画尚未烘焙。
+    pub const NOT_BAKED: i32 = -32011;
+    /// 动画不存在。
+    pub const ANIMATION_NOT_FOUND: i32 = -32012;
 }
 
 impl ApiError {
     pub fn new(code: i32, message: impl Into<String>) -> Self {
-        Self { code, message: message.into() }
+        Self { code, message: message.into(), hint: None }
+    }
+
+    /// 带修复建议的错误。
+    pub fn with_hint(code: i32, message: impl Into<String>, hint: impl Into<String>) -> Self {
+        Self { code, message: message.into(), hint: Some(hint.into()) }
     }
 
     pub fn invalid_params(message: impl Into<String>) -> Self {
@@ -133,6 +182,16 @@ impl std::fmt::Display for ApiError {
 }
 
 impl std::error::Error for ApiError {}
+
+impl From<AnimationError> for ApiError {
+    fn from(err: AnimationError) -> Self {
+        Self {
+            code: err.code(),
+            message: err.to_string(),
+            hint: err.hint().map(|h| h.to_string()),
+        }
+    }
+}
 
 impl From<DocumentError> for ApiError {
     fn from(err: DocumentError) -> Self {
@@ -168,6 +227,10 @@ pub struct Session {
     frame: u64,
     paused: bool,
     expression: Option<String>,
+    /// 预渲染动画库（`spec/animations/`）。
+    animations: am_anim::AnimationSet,
+    /// 模式状态机（`live` / `prerender`）。
+    mode: ModeState,
     #[cfg(feature = "gpu")]
     renderer: Option<Renderer>,
     #[cfg(feature = "gpu")]
@@ -197,6 +260,8 @@ impl Session {
             frame: 0,
             paused: false,
             expression: None,
+            animations: am_anim::AnimationSet::default(),
+            mode: ModeState::live(),
             #[cfg(feature = "gpu")]
             renderer: None,
             #[cfg(feature = "gpu")]
@@ -248,8 +313,48 @@ impl Session {
         self.spec.model = self.doc.model().clone();
         self.motions = MotionPlayer::with_motions(self.spec.motions.clone());
         self.physics = PhysicsEngine::new(&self.spec.physics);
+        self.animations = self.decode_animations();
+        self.mode = ModeState::live();
         let model = self.doc.model().clone();
         self.doc.params_mut().sync_with_model(&model);
+    }
+
+    /// 把 `spec.animations` 的 JSON 解码成强类型集合。
+    ///
+    /// 解码失败的条目**跳过并记日志**而不是整体失败：一份被手工改坏的动画
+    /// 不应该让整个工程打不开（与 `read_spec` 对可选文件的宽容策略一致）。
+    fn decode_animations(&self) -> am_anim::AnimationSet {
+        let mut set = am_anim::AnimationSet::default();
+        for value in &self.spec.animations {
+            match serde_json::from_value::<am_anim::AmAnimation>(value.clone()) {
+                Ok(animation) => set.upsert(animation),
+                Err(err) => {
+                    let id = value.get("id").and_then(|v| v.as_str()).unwrap_or("<无 id>");
+                    log::warn!("跳过无法解析的动画 {id}：{err}");
+                }
+            }
+        }
+        set
+    }
+
+    /// 把动画集合写回 `spec.animations`（保存 / 导出前调用）。
+    fn encode_animations(&mut self) {
+        self.spec.animations = self
+            .animations
+            .animations
+            .iter()
+            .filter_map(|a| serde_json::to_value(a).ok())
+            .collect();
+    }
+
+    /// 动画库（只读）。
+    pub fn animations(&self) -> &am_anim::AnimationSet {
+        &self.animations
+    }
+
+    /// 当前模式。
+    pub fn mode(&self) -> Mode {
+        self.mode.mode
     }
 
     /// 当前描述层（会先把结构模型同步进镜像）。
@@ -340,6 +445,9 @@ impl Session {
 
     /// 调用一个方法。
     pub fn dispatch(&mut self, method: &str, params: &Value) -> Result<Value, ApiError> {
+        if let Some(result) = self.dispatch_animation(method, params)? {
+            return Ok(result);
+        }
         match method {
             // ---------------------------------------------------- system
             "system.ping" => Ok(json!({ "pong": true, "version": ENGINE_VERSION })),
@@ -492,6 +600,8 @@ impl Session {
                 Ok(json!({ "ok": true }))
             }
             "runtime.advance" => {
+                // §2.1：预渲染模式下状态由轨决定，实时推进必须被拒绝（-32010）。
+                ModeGuard::require_live(&self.mode, "runtime.advance")?;
                 let dt = param_f32(params, "dt").unwrap_or(1.0 / 60.0);
                 self.advance(dt);
                 Ok(json!({ "time": self.time, "frame": self.frame }))
@@ -877,11 +987,14 @@ impl Session {
 }
 
 fn envelope_err(err: &ApiError) -> String {
-    serde_json::to_string(&json!({
-        "ok": false,
-        "error": { "code": err.code, "message": err.message },
-    }))
-    .unwrap_or_else(|_| r#"{"ok":false,"error":{"code":-32603,"message":"内部错误"}}"#.to_string())
+    let mut error = json!({ "code": err.code, "message": err.message });
+    // 规范 §9：可执行的修复建议随错误一起回给宿主。
+    if let Some(hint) = &err.hint {
+        error["hint"] = json!(hint);
+    }
+    serde_json::to_string(&json!({ "ok": false, "error": error })).unwrap_or_else(|_| {
+        r#"{"ok":false,"error":{"code":-32603,"message":"内部错误"}}"#.to_string()
+    })
 }
 
 // ------------------------------------------------------------------ 参数取值助手

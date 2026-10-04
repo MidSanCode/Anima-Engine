@@ -51,3 +51,7 @@ pub const SPEC_CONFIG_FILE: &str = "config.json";
 /// 描述层子目录。
 pub const MOTIONS_DIR: &str = "motions";
 pub const EXPRESSIONS_DIR: &str = "expressions";
+/// 预渲染动画目录（`spec/animations/<id>.anim.json`）。
+pub const ANIMATIONS_DIR: &str = "animations";
+/// 动画文件扩展名。
+pub const ANIMATION_EXT: &str = ".anim.json";

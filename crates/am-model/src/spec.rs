@@ -31,6 +31,12 @@ pub struct Spec {
     /// `spec/expressions/*.exp.json`
     #[serde(default)]
     pub expressions: Vec<Expression>,
+    /// `spec/animations/<id>.anim.json`（预渲染动画，见 `docs/animation-mode.md`）。
+    ///
+    /// 注意：`am-model` 不认识动画的求值语义，只负责**搬运**这棵 JSON。
+    /// 语义在 `am-anim`，这样描述层不必依赖求值链路。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub animations: Vec<serde_json::Value>,
     /// `spec/config.json`（可选）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<ProjectConfig>,

@@ -5,9 +5,9 @@
 
 use am_format::{FormatError, Project, SPEC_DIR};
 use am_model::{
-    Expression, Model, Motion, PhysicsSettings, Pose, ProjectConfig, Spec, EXPRESSIONS_DIR,
-    MOTIONS_DIR, SPEC_CONFIG_FILE, SPEC_MODEL_FILE, SPEC_PHYSICS_FILE, SPEC_POSE_FILE,
-    SPEC_SETTINGS_FILE,
+    Expression, Model, Motion, PhysicsSettings, Pose, ProjectConfig, Spec, ANIMATIONS_DIR,
+    EXPRESSIONS_DIR, MOTIONS_DIR, SPEC_CONFIG_FILE, SPEC_MODEL_FILE, SPEC_PHYSICS_FILE,
+    SPEC_POSE_FILE, SPEC_SETTINGS_FILE,
 };
 use std::path::PathBuf;
 
@@ -34,6 +34,7 @@ pub fn read_spec(project: &Project) -> Result<Spec, FormatError> {
     }
     spec.motions = read_list::<Motion>(project, MOTIONS_DIR, "motion.json")?;
     spec.expressions = read_list::<Expression>(project, EXPRESSIONS_DIR, "exp.json")?;
+    spec.animations = read_list::<serde_json::Value>(project, ANIMATIONS_DIR, "anim.json")?;
     Ok(spec)
 }
 
@@ -52,6 +53,45 @@ pub fn write_spec(project: &Project, spec: &Spec) -> Result<(), FormatError> {
     }
     write_list(project, MOTIONS_DIR, "motion.json", &spec.motions)?;
     write_list(project, EXPRESSIONS_DIR, "exp.json", &spec.expressions)?;
+    write_list(project, ANIMATIONS_DIR, "anim.json", &spec.animations)?;
+    prune_stale_animations(project, &spec.animations)?;
+    Ok(())
+}
+
+/// 删除 `spec/animations/` 下不再被引用的文件。
+///
+/// **为什么必须做**：只写不删的话，用户在编辑器里删掉一段动画、重开工程，
+/// 它又会从磁盘上「复活」—— 因为读回时是扫目录，不是按索引。
+/// 这一条有专门测试（`deleted_animation_does_not_resurrect`）。
+fn prune_stale_animations(
+    project: &Project,
+    animations: &[serde_json::Value],
+) -> Result<(), FormatError> {
+    let dir = project.fs_path(&format!("{SPEC_DIR}/{ANIMATIONS_DIR}"));
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    let mut keep: Vec<String> = Vec::new();
+    for value in animations {
+        if let Some(id) = value.get("id").and_then(|v| v.as_str()) {
+            keep.push(format!("{id}.anim.json"));
+        }
+    }
+    for entry in std::fs::read_dir(&dir)?.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().map(|n| n.to_string_lossy().to_string()) else {
+            continue;
+        };
+        if !name.ends_with("anim.json") {
+            continue;
+        }
+        if !keep.iter().any(|k| k == &name) {
+            std::fs::remove_file(&path)?;
+        }
+    }
     Ok(())
 }
 
@@ -155,5 +195,52 @@ mod tests {
         let mut spec = Spec::new(Model::new("demo"));
         spec.motions.push(Motion::new("bad id!", "Bad"));
         assert!(write_spec(&project, &spec).is_err());
+    }
+
+    #[test]
+    fn animations_round_trip_through_a_project() {
+        let (_dir, project) = temp_project();
+        let mut spec = Spec::new(Model::new("demo"));
+        let mut animation = am_anim::AmAnimation::new("idle", "待机");
+        animation.duration = 3.0;
+        spec.animations.push(serde_json::to_value(&animation).unwrap());
+        write_spec(&project, &spec).unwrap();
+
+        let back = read_spec(&project).unwrap();
+        assert_eq!(back.animations.len(), 1);
+        let decoded: am_anim::AmAnimation =
+            serde_json::from_value(back.animations[0].clone()).unwrap();
+        assert_eq!(decoded, animation, "动画应无损往返");
+    }
+
+    #[test]
+    fn deleted_animation_does_not_resurrect() {
+        // 只写不删会导致「删掉的动画重开又回来」，这是编辑器侧已修过的同类缺陷。
+        let (_dir, project) = temp_project();
+        let mut spec = Spec::new(Model::new("demo"));
+        spec.animations.push(serde_json::to_value(am_anim::AmAnimation::new("idle", "Idle")).unwrap());
+        spec.animations.push(serde_json::to_value(am_anim::AmAnimation::new("walk", "Walk")).unwrap());
+        write_spec(&project, &spec).unwrap();
+
+        let dir = project.fs_path(&format!("{SPEC_DIR}/{ANIMATIONS_DIR}"));
+        assert!(dir.join("idle.anim.json").exists());
+        assert!(dir.join("walk.anim.json").exists());
+
+        // 删掉 walk 后重写
+        spec.animations.retain(|a| a.get("id").and_then(|v| v.as_str()) != Some("walk"));
+        write_spec(&project, &spec).unwrap();
+
+        let back = read_spec(&project).unwrap();
+        assert_eq!(back.animations.len(), 1, "被删的动画不应复活");
+        assert!(!dir.join("walk.anim.json").exists(), "磁盘上的陈旧文件应被清理");
+    }
+
+    #[test]
+    fn empty_animation_dir_is_not_created() {
+        let (_dir, project) = temp_project();
+        let spec = Spec::new(Model::new("demo"));
+        write_spec(&project, &spec).unwrap();
+        let dir = project.fs_path(&format!("{SPEC_DIR}/{ANIMATIONS_DIR}"));
+        assert!(!dir.exists() || std::fs::read_dir(&dir).unwrap().count() == 0);
     }
 }
