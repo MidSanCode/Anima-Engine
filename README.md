@@ -33,6 +33,10 @@ Capabilities:
   command leaves the model untouched.
 * **Dynamics** — deterministic physics (pendulum / vertex chain) and a motion player
   (curves, looping, cross-fade).
+* **Animation modes** — a **live** mode (`runtime.advance`, stateful physics) and a
+  **prerender** mode: a baked, stateless parameter track with a real timeline, speed
+  scaling, keyframes and structural channels, so playback is seekable and bit-identical
+  across hosts. Specification: [`../docs/animation-mode.md`](../docs/animation-mode.md).
 * **Storage** — the `.amproj` project format: directory mode plus a packaged archive,
   with per-asset checksums and a validator.
 * **Interop** — a stable C ABI (`am_call`), a matching wasm binding, JSON Schemas, and a
@@ -164,6 +168,9 @@ Anima Engine 是 2D 角色创作与播放链路的**核心**：它负责模型�
 * **渲染** —— 离屏 GPU 渲染（预乘 alpha、遮罩、层合成）、像素读回、可选的平台纹理共享。
 * **编辑** —— 带撤销/重做的命令流；一个 `batch` 只占一步撤销；被拒绝的命令不改变模型。
 * **动态** —— 确定性物理（摆锤 / 顶点链）与动作播放（曲线、循环、交叉淡化）。
+* **动画模式** —— **实时模式**（`runtime.advance`，有状态物理）与**预渲染模式**：
+  把表演烘焙成一条**无状态**的参数轨，带真正的时间轴、变速、关键帧与结构通道，
+  因此可任意 `seek`、跨宿主逐位一致。规范见 [`../docs/animation-mode.md`](../docs/animation-mode.md)。
 * **存储** —— `.amproj` 工程格式：目录模式与打包归档，逐资源校验和与校验器。
 * **对外** —— 稳定的 C ABI（`am_call`）、同构的 wasm 绑定、JSON Schema，以及用于校验、
   渲染与打包的命令行工具。

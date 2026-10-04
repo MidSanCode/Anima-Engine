@@ -5,6 +5,10 @@
 > 头文件：`crates/am-ffi/bindings/include/anima.h`；机器可校验的 schema 见 `schemas/`。
 >
 > 契约版本：引擎 `0.1.0`，格式 `amproj v1`。
+>
+> **即将落地（v0.2.0）**：新增**预渲染模式**与 `animation.*` 方法面（含烘焙、变速、
+> 关键帧、结构通道）。规范见工作区根目录 [`../../docs/animation-mode.md`](../../docs/animation-mode.md)，
+> 其中 §3 是方法面草案、§4 是数据结构、§9 是新增错误码。实现落地后本文档会同步补 §4.10。
 
 ---
 
