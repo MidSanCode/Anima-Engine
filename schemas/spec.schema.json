@@ -16,6 +16,7 @@
 		"settings": { "$ref": "#/definitions/model_settings" },
 		"motions": { "type": "array", "items": { "$ref": "#/definitions/motion" } },
 		"expressions": { "type": "array", "items": { "$ref": "#/definitions/expression" } },
+		"animations": { "type": "array", "items": { "$ref": "#/definitions/animation" } },
 		"config": { "type": ["object", "null"] }
 	},
 	"definitions": {
@@ -151,24 +152,25 @@
 			}
 		},
 		"easing": {
-			"description": "linear/step/ease_in/ease_out/ease_in_out，或任意三次贝塞尔 { cubic_bezier: { p1, p2 } }",
+			"description": "对应 am_math::Easing（serde tag = type）：{type: linear/step/ease_in/ease_out/ease_in_out} 或 {type: cubic_bezier, p1, p2}",
 			"oneOf": [
 				{
-					"type": "string",
-					"enum": ["linear", "step", "ease_in", "ease_out", "ease_in_out"]
+					"type": "object",
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"enum": ["linear", "step", "ease_in", "ease_out", "ease_in_out"]
+						}
+					}
 				},
 				{
 					"type": "object",
-					"required": ["cubic_bezier"],
+					"required": ["type", "p1", "p2"],
 					"properties": {
-						"cubic_bezier": {
-							"type": "object",
-							"required": ["p1", "p2"],
-							"properties": {
-								"p1": { "$ref": "#/definitions/vec2" },
-								"p2": { "$ref": "#/definitions/vec2" }
-							}
-						}
+						"type": { "type": "string", "enum": ["cubic_bezier"] },
+						"p1": { "$ref": "#/definitions/vec2" },
+						"p2": { "$ref": "#/definitions/vec2" }
 					}
 				}
 			]
@@ -233,6 +235,117 @@
 					"type": "array",
 					"items": { "$ref": "#/definitions/expression_parameter" }
 				}
+			}
+		},
+		"anim_id": {
+			"description": "动画 id 即文件名：只允许小写字母、数字、下划线、连字符",
+			"type": "string",
+			"pattern": "^[a-z0-9_-]{1,128}$"
+		},
+		"anim_easing": { "$ref": "#/definitions/easing" },
+		"anim_key": {
+			"type": "object",
+			"required": ["time", "value"],
+			"properties": {
+				"time": { "type": "number" },
+				"value": { "type": "number" },
+				"easing": { "$ref": "#/definitions/easing" }
+			}
+		},
+		"anim_channel": {
+			"type": "object",
+			"required": ["kind", "target"],
+			"properties": {
+				"kind": {
+					"type": "string",
+					"enum": ["parameter", "visibility", "draw_order"]
+				},
+				"target": { "type": "string" },
+				"keys": { "type": "array", "items": { "$ref": "#/definitions/anim_key" } },
+				"enabled": { "type": "boolean" },
+				"color": { "type": ["string", "null"] },
+				"comment": { "type": ["string", "null"] }
+			}
+		},
+		"anim_track_block": {
+			"description": "ids + 行优先扁平数组：data 长度 = frames * ids.length",
+			"type": "object",
+			"properties": {
+				"ids": { "type": "array", "items": { "type": "string" } },
+				"data": { "type": "array", "items": { "type": "number" } }
+			}
+		},
+		"anim_range": {
+			"type": "object",
+			"properties": {
+				"start": { "type": "number" },
+				"end": { "type": "number" }
+			}
+		},
+		"anim_overlay": {
+			"type": "object",
+			"properties": {
+				"motions": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": ["id"],
+						"properties": {
+							"id": { "type": "string" },
+							"weight": { "type": "number" }
+						}
+					}
+				},
+				"expressions": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": ["id"],
+						"properties": {
+							"id": { "type": "string" },
+							"weight": { "type": "number" },
+							"from": { "type": "number" },
+							"to": { "type": "number" }
+						}
+					}
+				},
+				"physics": { "type": "boolean" },
+				"auto_effects": { "type": "boolean" }
+			}
+		},
+		"anim_track": {
+			"description": "烘焙产物；未烘焙时缺省。结构见 docs/animation-mode.md §4.3",
+			"type": "object",
+			"properties": {
+				"fps": { "type": "number", "exclusiveMinimum": 0 },
+				"frames": { "type": "integer", "minimum": 0 },
+				"duration": { "type": "number" },
+				"baked_at": { "type": "integer", "minimum": 0 },
+				"params": { "$ref": "#/definitions/anim_track_block" },
+				"visibility": { "$ref": "#/definitions/anim_track_block" },
+				"draw_order": { "$ref": "#/definitions/anim_track_block" },
+				"geometry": { "type": ["object", "null"] },
+				"range": { "$ref": "#/definitions/anim_range" },
+				"looping": { "type": "boolean" }
+			}
+		},
+		"animation": {
+			"description": "预渲染动画（spec/animations/<id>.anim.json），结构见 docs/animation-mode.md §4.1",
+			"type": "object",
+			"required": ["id", "name"],
+			"properties": {
+				"version": { "type": "integer" },
+				"id": { "$ref": "#/definitions/anim_id" },
+				"name": { "type": "string" },
+				"fps": { "type": "number", "minimum": 1, "maximum": 240 },
+				"duration": { "type": "number", "minimum": 0 },
+				"looping": { "type": "boolean" },
+				"range": { "$ref": "#/definitions/anim_range" },
+				"overlay": { "$ref": "#/definitions/anim_overlay" },
+				"channels": { "type": "array", "items": { "$ref": "#/definitions/anim_channel" } },
+				"track": { "type": ["object", "null"] },
+				"geometry": { "type": "string", "enum": ["model_ref", "snapshot"] },
+				"comment": { "type": ["string", "null"] }
 			}
 		}
 	}

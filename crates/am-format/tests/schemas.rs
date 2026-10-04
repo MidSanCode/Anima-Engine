@@ -77,6 +77,53 @@ fn sample_model_matches_the_model_schema() {
 }
 
 #[test]
+fn sample_animation_matches_the_animation_schema() {
+    let validator = compile_subschema("spec.schema.json", "animation");
+    let doc = read_json("../../samples/minimal/spec/animations/idle.anim.json");
+    let errors: Vec<_> = validator.iter_errors(&doc).collect();
+    assert!(errors.is_empty(), "idle.anim.json: {errors:?}");
+}
+
+#[test]
+fn animation_schema_rejects_bad_kind_and_id() {
+    // schema 不是装饰：坏数据必须被挡下
+    let validator = compile_subschema("spec.schema.json", "animation");
+    let mut doc = read_json("../../samples/minimal/spec/animations/idle.anim.json");
+    doc["channels"][0]["kind"] = json!("teleport");
+    let errors: Vec<_> = validator.iter_errors(&doc).collect();
+    assert!(!errors.is_empty(), "未知通道种类应被拒绝");
+
+    let mut doc = read_json("../../samples/minimal/spec/animations/idle.anim.json");
+    doc["id"] = json!("Idle"); // 大写不允许
+    let errors: Vec<_> = validator.iter_errors(&doc).collect();
+    assert!(!errors.is_empty(), "大写动画 id 应被拒绝");
+}
+
+#[test]
+fn easing_schema_matches_the_engine_representation() {
+    // serde tag = "type"，形状是 {type: cubic_bezier, p1, p2}，
+    // 不是 {cubic_bezier: {...}} —— 这条差异曾经真实存在过。
+    let validator = compile_subschema("spec.schema.json", "easing");
+    for good in [
+        json!({ "type": "linear" }),
+        json!({ "type": "step" }),
+        json!({ "type": "ease_in_out" }),
+        json!({ "type": "cubic_bezier", "p1": { "x": 0.42, "y": 0.0 }, "p2": { "x": 0.58, "y": 1.0 } }),
+    ] {
+        let errors: Vec<_> = validator.iter_errors(&good).collect();
+        assert!(errors.is_empty(), "{good} 应被接受：{errors:?}");
+    }
+    // 旧形状必须被拒绝，避免 schema 与引擎再次漂移
+    let stale = json!({ "cubic_bezier": { "p1": { "x": 0.1, "y": 0.1 }, "p2": { "x": 0.9, "y": 0.9 } } });
+    let errors: Vec<_> = validator.iter_errors(&stale).collect();
+    assert!(!errors.is_empty(), "旧形状不应被接受");
+
+    let missing = json!({ "type": "cubic_bezier" });
+    let errors: Vec<_> = validator.iter_errors(&missing).collect();
+    assert!(!errors.is_empty(), "缺 p1/p2 应被拒绝");
+}
+
+#[test]
 fn spec_schema_accepts_the_sample_spec() {
     let validator = compile("spec.schema.json");
     let spec = json!({
@@ -103,9 +150,9 @@ fn spec_schema_accepts_the_sample_spec() {
                         "kind": "parameter",
                         "keys": [
                             { "time": 0.0, "value": -30.0 },
-                            { "time": 1.0, "value": 30.0, "easing": "ease_in_out" },
+                            { "time": 1.0, "value": 30.0, "easing": { "type": "ease_in_out" } },
                             { "time": 2.0, "value": -30.0,
-                              "easing": { "cubic_bezier": { "p1": [0.3, 0.0], "p2": [0.7, 1.0] } } }
+                              "easing": { "type": "cubic_bezier", "p1": [0.3, 0.0], "p2": [0.7, 1.0] } }
                         ]
                     }
                 ]
@@ -119,6 +166,9 @@ fn spec_schema_accepts_the_sample_spec() {
                 "fade_out": 0.2,
                 "parameters": [ { "parameter": "AngleX", "value": 10.0, "blend": "additive", "weight": 1.0 } ]
             }
+        ],
+        "animations": [
+            read_json("../../samples/minimal/spec/animations/idle.anim.json")
         ]
     });
     let errors: Vec<_> = validator.iter_errors(&spec).collect();

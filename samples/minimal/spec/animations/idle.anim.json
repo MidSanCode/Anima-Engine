@@ -1,0 +1,111 @@
+{
+	"version": 1,
+	"id": "idle",
+	"name": "待机",
+	"fps": 30.0,
+	"duration": 3.0,
+	"looping": true,
+	"range": {
+		"start": 0.0,
+		"end": 3.0
+	},
+	"geometry": "model_ref",
+	"overlay": {
+		"motions": [],
+		"expressions": [],
+		"physics": false,
+		"auto_effects": false
+	},
+	"channels": [
+		{
+			"kind": "parameter",
+			"target": "AngleX",
+			"enabled": true,
+			"color": "#4C9AFF",
+			"keys": [
+				{
+					"time": 0.0,
+					"value": 0.0,
+					"easing": {
+						"type": "cubic_bezier",
+						"p1": {
+							"x": 0.42,
+							"y": 0.0
+						},
+						"p2": {
+							"x": 0.58,
+							"y": 1.0
+						}
+					}
+				},
+				{
+					"time": 1.5,
+					"value": 30.0,
+					"easing": {
+						"type": "cubic_bezier",
+						"p1": {
+							"x": 0.42,
+							"y": 0.0
+						},
+						"p2": {
+							"x": 0.58,
+							"y": 1.0
+						}
+					}
+				},
+				{
+					"time": 3.0,
+					"value": 0.0,
+					"easing": {
+						"type": "linear"
+					}
+				}
+			]
+		},
+		{
+			"kind": "visibility",
+			"target": "node-body",
+			"enabled": true,
+			"color": "#F5A623",
+			"keys": [
+				{
+					"time": 0.0,
+					"value": 1.0,
+					"easing": {
+						"type": "step"
+					}
+				},
+				{
+					"time": 2.0,
+					"value": 0.0,
+					"easing": {
+						"type": "step"
+					}
+				},
+				{
+					"time": 2.5,
+					"value": 1.0,
+					"easing": {
+						"type": "step"
+					}
+				}
+			]
+		},
+		{
+			"kind": "draw_order",
+			"target": "node-body",
+			"enabled": true,
+			"keys": [
+				{
+					"time": 0.0,
+					"value": 0.0
+				},
+				{
+					"time": 3.0,
+					"value": 0.0
+				}
+			]
+		}
+	],
+	"comment": "示例：3 秒待机动画，含一条结构通道（node-body 的可见性阶跃）。"
+}
