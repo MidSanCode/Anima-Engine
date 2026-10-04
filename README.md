@@ -64,6 +64,7 @@ The repository root **is** the Cargo workspace root (there is no nested `engine/
 ├── docs/
 │   ├── ffi-contract.md   the contract hosts integrate against
 │   ├── format.md         .amproj format specification
+│   ├── artifacts.md      checksums of the already-built binaries in target/
 │   └── mobile.md         Android / iOS delivery and integration
 ├── crates/am-ffi/bindings/include/anima.h   C ABI header
 ├── .github/workflows/build.yml              six-platform build + release publishing
@@ -197,6 +198,7 @@ Anima Engine 是 2D 角色创作与播放链路的**核心**：它负责模型�
 ├── docs/
 │   ├── ffi-contract.md   宿主对接的唯一契约
 │   ├── format.md         .amproj 格式规范
+│   ├── artifacts.md      target/ 里已构建产物的校验和（暂不可重建时的追溯依据）
 │   └── mobile.md         Android / iOS 交付与接入
 ├── crates/am-ffi/bindings/include/anima.h   C ABI 头文件
 ├── .github/workflows/build.yml              六平台构建 + 发布为 Releases

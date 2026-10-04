@@ -1,0 +1,26 @@
+﻿[
+    {
+        "path":  "target\\release\\anima.lib",
+        "sha256":  "DFCC2EDE7D3DA994FF448D0A678BB70CDD97F14457BB3BD74E9D6243391B0A15"
+    },
+    {
+        "path":  "target\\release\\anima.exe",
+        "sha256":  "C778C8C8B765A28EBF4006DCDD0DB5097A4C9AB49A9A41D8FE15DBCD5E7EF5A1"
+    },
+    {
+        "path":  "target\\wasm32-unknown-unknown\\release\\anima_wasm.wasm",
+        "sha256":  "2BE7C710CAFA692FB67726686E860C1CCD8AF55BC593A31D86C12F15C0A2999F"
+    },
+    {
+        "path":  "target\\release\\anima.pdb",
+        "sha256":  "69273D1C3EC1A361B6C643782E5D31BF76F1206A5C5F922B9B1FF205D59DEB53"
+    },
+    {
+        "path":  "target\\release\\anima.dll.lib",
+        "sha256":  "69EB3EEF20CEE08F2E5C175707AF1FFCBB543C449FC0872C42E628D2E07F7090"
+    },
+    {
+        "path":  "target\\release\\anima.dll",
+        "sha256":  "B1384D71FA82610ECC2B348125E2501CF83F9B81B490101F3B24F18B0DC75AC8"
+    }
+]
