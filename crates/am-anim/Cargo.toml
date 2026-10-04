@@ -1,0 +1,15 @@
+[package]
+name = "am-anim"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Anima engine crate: am-anim（预渲染动画：数据模型、轨求值、烘焙）"
+
+[dependencies]
+am-math.workspace = true
+am-model.workspace = true
+am-eval.workspace = true
+am-physics.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
